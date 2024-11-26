@@ -338,9 +338,9 @@ public class DefaultFormatter <: Formatter {
             return ((value as Int64).getOrThrow()).toString()
         } else if (value is String) {
             return (value as String).getOrThrow()
-        } else if (value is ByteBuffer) {
-            return String.fromUtf8(readToEnd(
-                (value as ByteBuffer).getOrThrow()))
+        } else if (value is ByteArrayStream) {
+            return String.fromUtf8(
+                (value as ByteArrayStream).getOrThrow().readToEnd())
         } else if (value is Bool) {
             return (value as Bool).getOrThrow().toString()
         } else if (value is (String, String)) {
@@ -431,7 +431,7 @@ public class Compiler {
 
     // /** 将提供的模板编译为可重复执行的中间形式 */
     public func compile(template: String): Template {
-        let byteArrayStream = ByteBuffer()
+        let byteArrayStream = ByteArrayStream()
         byteArrayStream.write(template.toArray())
         let temp = BufferedInputStream(byteArrayStream)
         return compile(temp)
@@ -741,7 +741,7 @@ protected class Parser {
 
     protected func nextChar(): Int64 { 
         try {
-            let arrByte = Array<Byte>(1, repeat: 0)
+            let arrByte = Array<Byte>(1, item: 0)
             let extractedSourse = sourse.getOrThrow()
             extractedSourse.read(arrByte)
             return Int64(arrByte[0])  
@@ -2008,4 +2008,10 @@ extend StringBuilder {
         this.reset(capacity: Some(1))
         this.append(str[0..l] + s + str[r..])
     } 
+}
+
+extend String {
+    public func equalsIgnoreAsciiCase(str: String): Bool {
+        return this == str
+    }
 }

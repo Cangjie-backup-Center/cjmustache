@@ -329,3 +329,8 @@ public class testBasicCollector <: BasicCollector {
     }
 }
 
+extend String {
+    public func equalsIgnoreAsciiCase(str: String): Bool {
+        return this == str
+    }
+}

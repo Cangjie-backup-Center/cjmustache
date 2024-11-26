@@ -37,7 +37,7 @@ public class MustacheTest {
     @TestCase 
     public func testCharSequenceVariable(){
         let ctx = HashMap<String, Any>()
-        let stringBuffer = ByteBuffer()
+        let stringBuffer = ByteArrayStream()
         stringBuffer.write("bar".toArray())
         ctx.put("foo", (stringBuffer as Any).getOrThrow())
         @Expect(test("bar", "{{foo}}", ctx))

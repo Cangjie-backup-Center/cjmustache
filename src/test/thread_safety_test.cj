@@ -10,6 +10,7 @@ import std.collection.concurrent.*
 import std.convert.*
 import std.reflect.*
 import std.sync.*
+import std.time.*
 
 @Test
 public class ThreadSafetyTest {
@@ -28,7 +29,10 @@ public class ThreadSafetyTest {
         let mon = Monitor()
         let loader = CountLoader()
         let compiler = Mustache.compiler().withLoader(loader)
-        let template = compiler.compile(BufferedInputStream(ByteBuffer(templateA.toArray())))
+        let byteArrayStream = ByteArrayStream()
+        byteArrayStream.write(templateA.toArray())
+        let template = compiler.compile(BufferedInputStream(byteArrayStream))
+
 
         let threads = ArrayList<Future<Unit>>()
         for (_ in 0..nThreads) {
@@ -103,7 +107,9 @@ public class CountLoader <: TemplateLoader {
         if (!"templateB".equalsIgnoreAsciiCase(name)) {
             throw IllegalArgumentException()
         }
-        return BufferedInputStream(ByteBuffer(ThreadSafetyTest.templateB.toArray()))
+        let byteArrayStream = ByteArrayStream()
+        byteArrayStream.write(ThreadSafetyTest.templateB.toArray())
+        return BufferedInputStream(byteArrayStream)
     }
 
     public func count(): Int64 {
@@ -115,10 +121,12 @@ public class TemplateLoader5 <: TemplateLoader {
     public TemplateLoader5(let loadCount: AtomicInt64) {}
 
     public override func getTemplate(name: String): InputStream {
+        let byteArrayStream = ByteArrayStream()
+        byteArrayStream.write("Hello".toArray())
         if ("partial".equalsIgnoreAsciiCase(name)) {
             loadCount.fetchAdd(1)
             sleep(Duration.second)
-            return BufferedInputStream(ByteBuffer("Hello".toArray()))
+            return BufferedInputStream(byteArrayStream)
         }
         throw IOException(name)
     }

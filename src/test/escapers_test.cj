@@ -95,14 +95,14 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         let sb = StringBuilder()
-        let bas = ByteBuffer()
+        let bas = ByteArrayStream()
         let bf = BufferedOutputStream(bas)
         let escaper = Lookup7bitEscaper(table1)
         escaper.escape(sb, bf, "AAA#BBB#CCC")
         bf.flush()
         let ans = "aaa#bbb#ccc"
         @Expect(sb.toString(), ans)
-        @Expect(String.fromUtf8(readToEnd(bas)), ans)
+        @Expect(String.fromUtf8(bas.readToEnd()), ans)
     }
 
     @TestCase
@@ -111,14 +111,14 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         let sb = StringBuilder()
-        let bas = ByteBuffer()
+        let bas = ByteArrayStream()
         let bf = BufferedOutputStream(bas)
         let escaper = Lookup7bitEscaper(table1)
         escaper.escape(sb, bf, "A##A#B##B#C##C")
         bf.flush()
         let ans = "a##a#b##b#c##c"
         @Expect(sb.toString(), ans)
-        @Expect(String.fromUtf8(readToEnd(bas)), ans)
+        @Expect(String.fromUtf8(bas.readToEnd()), ans)
     }
 
     @TestCase

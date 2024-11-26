@@ -843,10 +843,12 @@ public class TemplateLoader1 <: TemplateLoader {
     public TemplateLoader1(let mp: HashMap<String, String>) {}
 
     public func getTemplate(name: String): InputStream {
+        let byteArrayStream = ByteArrayStream()
         if (let Some(value) <- mp.get(name)) {
-            return BufferedInputStream(ByteBuffer(value.toArray()))
+            byteArrayStream.write(value.toArray())
+            return BufferedInputStream(byteArrayStream)
         }
-        return BufferedInputStream(ByteBuffer())
+        return BufferedInputStream(byteArrayStream)
     }
 }
 
@@ -854,7 +856,9 @@ public class TemplateLoader2 <: TemplateLoader {
     public TemplateLoader2(let str: String) {}
 
     public func getTemplate(_: String): InputStream {
-        return BufferedInputStream(ByteBuffer(str.toArray()))
+        let byteArrayStream = ByteArrayStream()
+        byteArrayStream.write(str.toArray())
+        return BufferedInputStream(byteArrayStream)
     }
 } 
 
@@ -862,10 +866,13 @@ public class TemplateLoader3 <: TemplateLoader {
     public TemplateLoader3(let str1: String, let str2: String) {}
 
     public func getTemplate(name: String): InputStream {
+        let byteArrayStream = ByteArrayStream()
         if (name.equalsIgnoreAsciiCase("partial")) {
-            return BufferedInputStream(ByteBuffer(str1.toArray()))
+            byteArrayStream.write(str1.toArray())
+            return BufferedInputStream(byteArrayStream)
         }
-        return BufferedInputStream(ByteBuffer(str2.toArray()))
+        byteArrayStream.write(str2.toArray())
+        return BufferedInputStream(byteArrayStream)
     }
 } 
 
@@ -873,10 +880,13 @@ public class TemplateLoader4 <: TemplateLoader {
     public TemplateLoader4(let str1: String, let str2: String) {}
 
     public func getTemplate(name: String): InputStream {
+        let byteArrayStream = ByteArrayStream()
         if (name.equalsIgnoreAsciiCase("nested")) {
-            return BufferedInputStream(ByteBuffer(str1.toArray()))
+            byteArrayStream.write(str1.toArray())
+            return BufferedInputStream(byteArrayStream)
         }
-        return BufferedInputStream(ByteBuffer(str2.toArray()))
+        byteArrayStream.write(str2.toArray())
+        return BufferedInputStream(byteArrayStream)
     }
 }
 

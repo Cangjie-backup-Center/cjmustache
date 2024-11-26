@@ -175,7 +175,7 @@ public class FieldVariableFetcher <: VariableFetcher {
                         superClassInfo.constructors.toArray()[0]
                     let paramInfos = constructorInfo.parameters
                     instance = constructorInfo.apply(
-                        Array<Any>(paramInfos.size, repeat: Object()))
+                        Array<Any>(paramInfos.size, item: Object()))
                     continue
                 } else {
                     break

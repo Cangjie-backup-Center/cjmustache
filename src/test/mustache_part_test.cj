@@ -78,7 +78,7 @@ public class ParserTest {
 
     @TestCase
     public func nextCharTest() {
-        let bf = ByteBuffer()
+        let bf = ByteArrayStream()
         bf.write("abcdef".toArray())
         source = BufferedInputStream(bf)
         @Expect(nextChar(), 97)
@@ -112,7 +112,7 @@ public class ParserTest {
 
     private func nextChar(): Int64 { 
         try {
-            let arr = Array<Byte>(1, repeat: 0)
+            let arr = Array<Byte>(1, item: 0)
             let s = source.getOrThrow()
             s.read(arr)
             return Int64(arr[0]) 

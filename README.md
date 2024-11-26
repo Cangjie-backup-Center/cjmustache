@@ -4,7 +4,7 @@
 
 <p align="center">
 <img alt="" src="https://img.shields.io/badge/release-v0.1.0-brightgreen" style="display: inline-block;" />
-<img alt="" src="https://img.shields.io/badge/cjc-v0.57.3-brightgreen" style="display: inline-block;" />
+<img alt="" src="https://img.shields.io/badge/cjc-v0.53.13-brightgreen" style="display: inline-block;" />
 <!-- <img alt="" src="https://img.shields.io/badge/cjcov-0.0%25-brightgreen" style="display: inline-block;" /> -->
 <!-- <img alt="" src="https://img.shields.io/badge/state-孵化/毕业-brightgreen" style="display: inline-block;" /> -->
 <!-- <img alt="" src="https://img.shields.io/badge/domain-HOS/Cloud-brightgreen" style="display: inline-block;" /> -->
@@ -168,7 +168,9 @@ public class TemplateLoader2 <: TemplateLoader {
     public TemplateLoader2(let str: String) {}
 
     public func getTemplate(_: String): InputStream {
-        return BufferedInputStream(ByteBuffer(str.toArray()))
+        let byteArrayStream = ByteArrayStream()
+        byteArrayStream.write(str.toArray())
+        return BufferedInputStream(byteArrayStream)
     }
 } 
 
@@ -268,6 +270,7 @@ compile("{{foo}}").execute(ObjectHTML())
 ```
 
 **用户定义的对象格式**
+
 
 默认情况下，cjmustache在呈现模板时将对象转换为字符串。您可以通过实现`Mustache.Formatter`来自定义此格式：
 

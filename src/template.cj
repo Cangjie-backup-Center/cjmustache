@@ -28,11 +28,11 @@ public class Template {
         ("<no fetcher found>" as Any).getOrThrow()   
 
     public func execute(context: ?Any): String {
-        let byteArrayStream = ByteBuffer()
+        let byteArrayStream = ByteArrayStream()
         let out = BufferedOutputStream(byteArrayStream)
         execute(context, out)
         out.flush()
-        return String.fromUtf8(readToEnd(byteArrayStream))
+        return String.fromUtf8(byteArrayStream.readToEnd())
     }
 
     public func execute(context: ?Any, out: OutputStream): Unit {
@@ -527,22 +527,22 @@ public abstract class Fragment {
 
     /**执行此片段并将其结果作为字符串返回*/
     public func execute(): String {
-        let byteArrayStream = ByteBuffer()
+        let byteArrayStream = ByteArrayStream()
         let bufferedOutputStream = 
         BufferedOutputStream(byteArrayStream)
         execute(bufferedOutputStream)
         bufferedOutputStream.flush()
-        return String.fromUtf8(readToEnd(byteArrayStream))
+        return String.fromUtf8(byteArrayStream.readToEnd())
     }
 
     /**使用提供的上下文执行此片段；以字符串形式返回其结果
     * 提供的上下文将嵌套在片段的绑定上下文中*/
     public func execute(context: ?Any): String {
-        let byteArrayStream = ByteBuffer()
+        let byteArrayStream = ByteArrayStream()
         let bufferedOutputStream = BufferedOutputStream(byteArrayStream)
         execute(context, bufferedOutputStream)
         bufferedOutputStream.flush()
-        return String.fromUtf8(readToEnd(byteArrayStream))
+        return String.fromUtf8(byteArrayStream.readToEnd())
     }
 
     /**返回对此片段有效的上下文对象。对象的实际类型
