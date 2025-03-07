@@ -39,7 +39,7 @@ public class MustacheTest {
         let ctx = HashMap<String, Any>()
         let stringBuffer = ByteBuffer()
         stringBuffer.write("bar".toArray())
-        ctx.put("foo", (stringBuffer as Any).getOrThrow())
+        ctx.add("foo", (stringBuffer as Any).getOrThrow())
         @Expect(test("bar", "{{foo}}", ctx))
     }
 
@@ -177,7 +177,7 @@ public class MustacheTest {
         @Expect(test(c, "1oneone1one!", 
         "{{#events}}{{#renderEvent}}{{/renderEvent}}{{/events}}", context(
                 "renderEvent", TestLambda(lfoo, lbar), "events",
-                ArrayList<Any>(Foo(), Bar(), Bar(), Foo(), Bar(), "wtf?"))))
+                ArrayList<Any>([Foo(), Bar(), Bar(), Foo(), Bar(), "wtf?"]))))
     }
 
     // @Test public void testCustomFormatter ()  // TODO
@@ -186,8 +186,8 @@ public class MustacheTest {
     @TestCase 
     public func testMapEntriesPlusReflectSection() {
         let data = HashMap<String,String>()
-        data.put("k1", "v1")
-        data.put("k2", "v2")
+        data.add("k1", "v1")
+        data.add("k2", "v2")
         // 'key' and 'value' here rely on reflection so we can't test this in GWT
         @Expect(test("k1v1k2v2", 
         "{{#map.entrySet}}{{mapkey}}{{mapvalue}}{{/map.entrySet}}",
@@ -243,10 +243,10 @@ public class MustacheTest {
         while (ii < data.size) {
             if (ii + 1 >= data.size) { break }
             if (data[ii + 1].isNone()) {
-                ctx.put((data[ii].getOrThrow() as String).
+                ctx.add((data[ii].getOrThrow() as String).
                 getOrThrow(), None)
             } else {
-                ctx.put((data[ii].getOrThrow() as String).
+                ctx.add((data[ii].getOrThrow() as String).
                 getOrThrow(), (data[ii + 1].getOrThrow() as Any).
                 getOrThrow())
             }

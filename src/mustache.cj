@@ -252,7 +252,7 @@ public class Mustache {
             if (!refEq(seg, copy)) {
                 changed = true
             }
-            copySegs.append(copy)
+            copySegs.add(copy)
         }
 
         if (changed) {
@@ -285,7 +285,7 @@ public class Mustache {
             if (!refEq(seg, copy)) {
                 changed = true
             }
-            copySegs.append(copy)
+            copySegs.add(copy)
         }
         if (changed) {
             return copySegs.toArray()
@@ -768,7 +768,7 @@ open protected class Accumlator {
     /* 将普通文本添加为模板片段。这个方法会将 StringBuilder 中的内容转化为 StringSegment 对象，存储在 _segs 列表中 */
     public func addTextSegment(text: StringBuilder): Unit {
         if (text.size > 0) {
-            _segs.append(StringSegment(text.toString(),
+            _segs.add(StringSegment(text.toString(),
                         _segs.isEmpty() && _topLevel))
             text.reset(capacity: Some(1))
         }
@@ -787,7 +787,7 @@ open protected class Accumlator {
                     return SectionSegmentAccumlator(
                         _comp, false, outer, tag1, tagLine)
             
-            case r'>' => _segs.append(
+            case r'>' => _segs.add(
                     IncludedTemplateSegment(_comp, tag1, tagLine))
                     return this
 
@@ -806,23 +806,23 @@ open protected class Accumlator {
             case r'/' => requireNoNewlines(tag, tagLine)
                     return addCloseSectionSegment(tag1, tagLine)
 
-            case r'!' => _segs.append(FauxSegment())
+            case r'!' => _segs.add(FauxSegment())
                     return this
 
             case r'&' => requireNoNewlines(tag, tagLine)
-                    _segs.append(VariableSegment(
+                    _segs.add(VariableSegment(
                         tag1, tagLine, _comp._formatter, Escapers.NONE))
                     return this
 
             case _ => requireNoNewlines(tag, tagLine)
-                    _segs.append(VariableSegment(
+                    _segs.add(VariableSegment(
                         tag, tagLine, _comp._formatter, _comp._escaper))
                     return this
         }
     }
 
     public func addFauxSegment(): Unit {
-        _segs.append(FauxSegment())
+        _segs.add(FauxSegment())
     }
 
     open public func finish(): Array<Segment> {
@@ -870,7 +870,7 @@ protected class SectionSegmentAccumlator <: Accumlator {
     protected override func addCloseSectionSegment(itag: String,
         line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(SectionSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(SectionSegment(_comp, itag, super.finish(), tagLine))
         return outer
     }
 }
@@ -889,7 +889,7 @@ protected class ParentTemplateSegmentAccumlator <: Accumlator {
     protected override func addCloseSectionSegment(itag: String,
         line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(ParentTemplateSegment(
+        outer._segs.add(ParentTemplateSegment(
             _comp, itag, super.finish(), tagLine))
         return outer
     }
@@ -909,7 +909,7 @@ protected class BlockSegmentAccumlator <: Accumlator {
     protected override func addCloseSectionSegment(itag: String, 
         line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(BlockSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(BlockSegment(_comp, itag, super.finish(), tagLine))
         return outer
     }
 }
@@ -929,7 +929,7 @@ protected class InvertedSegmentAccumlator <: Accumlator {
     protected override func addCloseSectionSegment(itag: String,
          line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(
+        outer._segs.add(
             InvertedSegment(_comp, itag, 
             super.finish(), tagLine))
         return outer
@@ -1364,7 +1364,7 @@ protected class SectionSegment <: AbstractSectionSegment {
             var index: Int64 = 0
             let list = ArrayList<T>()
             while (let Some(elem) <- extractedIter.next()) {
-                list.append(elem)
+                list.add(elem)
             }
 
             var count = list.size
@@ -1615,8 +1615,8 @@ protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSecti
         this._standaloneStart = original._standaloneStart
         this._standaloneEnd = original._standaloneEnd
         let newBlocks = HashMap<String, BlockSegment>()
-        newBlocks.putAll(original._blocks)
-        newBlocks.putAll(blocks)
+        newBlocks.add(all: original._blocks)
+        newBlocks.add(all: blocks)
         this._blocks = newBlocks 
     }
 
@@ -1625,7 +1625,7 @@ protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSecti
         let copy = ArrayList<Segment>()
         for (seg in segs) {
             if (seg is BlockSegment) {
-                copy.append(seg)
+                copy.add(seg)
             } 
         }
 
@@ -1658,10 +1658,10 @@ protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSecti
         for (seg in _segs) {
             if (seg is BlockSegment) {
                 let bs = (seg as BlockSegment).getOrThrow()
-                blocks.put(bs._name, bs)
+                blocks.add(bs._name, bs)
             }
         }
-        blocks.putAll(_blocks)
+        blocks.add(all: _blocks)
         return super._loadTemplate().replaceBlocks(blocks)
     }
 

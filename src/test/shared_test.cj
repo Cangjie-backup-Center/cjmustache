@@ -44,32 +44,32 @@ public class SharedTest {
     @TestCase 
     public func testListSection () {
         @Expect(test("bazbif", "{{#foo}}{{bar}}{{/foo}}", context(
-                "foo", ArrayList<Any>(context("bar", "baz"), context("bar", "bif")))))
+                "foo", ArrayList<Any>([context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase 
     public func testListIndexSection() { 
         @Expect(test("baz", "{{#foo.0}}{{bar}}{{/foo.0}}", context(
-            "foo", ArrayList<Any>(context("bar", "baz"), context("bar", "bif")))))
+            "foo", ArrayList<Any>([context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase 
     public func testListIndexOutOfBoundsSection (){
         @Expect(test("", "{{#foo.2}}{{bar}}{{/foo.2}}", context(
-            "foo", ArrayList<Any>(context("bar", "baz"), context("bar", "bif")))))
+            "foo", ArrayList<Any>([context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase 
     public func testListItemSection () {
         @Expect(test("baz", "{{foo.0.bar}}", context(
-            "foo", ArrayList<Any>(context("bar", "baz"), context("bar", "bif")))))
+            "foo", ArrayList<Any>([context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase
     public func testMapEntriesSection () {
         let data = HashMap<String, String>()
-        data.put("k1", "v1");
-        data.put("k2", "v2");
+        data.add("k1", "v1");
+        data.add("k2", "v2");
         @Expect(test(Mustache.compiler().escapeHTML(false),
             "k1=v1k2=v2", "{{#map.entrySet}}{{.}}{{/map.entrySet}}",
             context("map", data)))
@@ -78,42 +78,42 @@ public class SharedTest {
     @TestCase 
     public func testArraySection() {
         @Expect(test("bazbif", "{{#foo}}{{bar}}{{/foo}}",
-            context("foo", ArrayList<Any>(context("bar", "baz"), context("bar", "bif")))))
+            context("foo", ArrayList<Any>([context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase 
     public func testArrayIndexSection() {
         @Expect(test("baz", "{{#foo.0}}{{bar}}{{/foo.0}}",
             context("foo", ArrayList<Any>(
-                context("bar", "baz"), context("bar", "bif")))))
+                [context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase
     public func testArrayIndexOutOfBoundsSection() {
         @Expect(test("", "{{#foo.2}}{{bar}}{{/foo.2}}",
             context("foo", ArrayList<Any>(
-                    context("bar", "baz"), context("bar", "bif")))))
+                    [context("bar", "baz"), context("bar", "bif")]))))
     }
 
     @TestCase
     public func testIteratorIndexSection() {
         @Expect(test("baz", "{{#foo.0}}{{bar}}{{/foo.0}}",
-            context("foo", ArrayList<Any>(context("bar", "baz"),
-                context("bar", "bif")).iterator())))
+            context("foo", ArrayList<Any>([context("bar", "baz"),
+                context("bar", "bif")]).iterator())))
     }
 
     @TestCase 
     public func testIteratorSection() {
         @Expect(test("bazbif", "{{#foo}}{{bar}}{{/foo}}",
             context("foo", ArrayList<Any>(
-                context("bar", "baz"), context("bar", "bif")).iterator())))
+                [context("bar", "baz"), context("bar", "bif")]).iterator())))
     }
 
     @TestCase 
     public func testIteratorIndexOutOfBoundsSection() {
         @Expect(test("", "{{#foo.2}}{{bar}}{{/foo.2}}",
             context("foo", ArrayList<Any>(
-                context("bar", "baz"), context("bar", "bif")).iterator())))
+                [context("bar", "baz"), context("bar", "bif")]).iterator())))
     }
 
     @TestCase 
@@ -213,7 +213,7 @@ public class SharedTest {
     protected func fpartials(entries: Array<(String, String)>): TemplateLoader {
         let templates = HashMap<String, String>()
         for (e in entries) {
-            templates.put(e[0], e[1])
+            templates.add(e[0], e[1])
         }
         partials = templates
         return TemplateLoader1(templates)
@@ -292,8 +292,8 @@ public class SharedTest {
         @Expect(test(Mustache.compiler().withLoader(TemplateLoader4("{{name}}{{thing_name}}", "nonfoo"))
         , "foo((foobar)(foobaz))", "{{name}}({{#things}}({{>nested}}){{/things}})",
             context("name", "foo",
-                    "things", ArrayList<Any>(context("thing_name", "bar"),
-                                            context("thing_name", "baz")))))
+                    "things", ArrayList<Any>([context("thing_name", "bar"),
+                                            context("thing_name", "baz")]))))
     }
 
     @TestCase 
@@ -302,13 +302,13 @@ public class SharedTest {
         @Expect(test(Mustache.compiler().withLoader(TemplateLoader2(template))
         , "[level0, [level1a, [level2a]], [level1b, [level2b]]]", template,
             context("name", "level0",
-                    "properties", ArrayList<Any>(
+                    "properties", ArrayList<Any>([
             context("name", "level1a",
                     // test with empty list as recursive terminator
                     "properties", context("name", "level2a", "properties", ArrayList<Any>())),
             context("name", "level1b",
                     // test with null as recursive terminator
-                    "properties", context("name", "level2b", "properties", None))
+                    "properties", context("name", "level2b", "properties", None))]
         ))))
     }
 
@@ -396,16 +396,16 @@ public class SharedTest {
     @TestCase 
     public func testNestedThis() {
         @Expect(check("barbazbif", Mustache.compiler().compile("{{#things}}{{this}}{{/things}}").
-            execute(context("things", ArrayList<Any>("bar", "baz", "bif")))))
+            execute(context("things", ArrayList<Any>(["bar", "baz", "bif"])))))
         @Expect(check("barbazbif", Mustache.compiler().compile("{{#things}}{{.}}{{/things}}").
-            execute(context("things", ArrayList<Any>("bar", "baz", "bif")))))
+            execute(context("things", ArrayList<Any>(["bar", "baz", "bif"])))))
     }
 
     @TestCase 
     public func testNestedNullThis() {
         @Expect(check("bar!bif", Mustache.compiler().defaultValue("!").
             compile("{{#things}}{{.}}{{/things}}").
-            execute(context("things", ArrayList<?Any>("bar", None, "bif")))))
+            execute(context("things", ArrayList<?Any>(["bar", None, "bif"])))))
     }
 
     @TestCase 
@@ -477,7 +477,7 @@ public class SharedTest {
             "one" + sep +
             "two" + sep +
             "three" + sep +
-            "endlist", tmpl, context("items",  ArrayList<Any>("one", "two", "three"))))
+            "endlist", tmpl, context("items",  ArrayList<Any>(["one", "two", "three"]))))
         @Expect(test("list:" + sep +
             "no items" + sep +
             "endlist", tmpl, context("items",  ArrayList<Any>())))
@@ -496,7 +496,7 @@ public class SharedTest {
             "  <li>one</li>" + sep +
             "  <li>two</li>" + sep +
             "  <li>three</li>" + sep +
-            "</ul>", htmlTmpl, context("items", ArrayList<Any>("one", "two", "three"))))
+            "</ul>", htmlTmpl, context("items", ArrayList<Any>(["one", "two", "three"]))))
         @Expect(test("<ul>" + sep +
             "  <li>no items</li>" + sep +
             "</ul>", htmlTmpl, context("items",  ArrayList<Any>())))
@@ -517,65 +517,65 @@ public class SharedTest {
     public func testNestedContexts () {
         @Expect(test("foo((foobar)(foobaz))", "{{name}}({{#things}}({{name}}{{thing_name}}){{/things}})",
             context("name", "foo",
-                    "things", ArrayList<Any>(context("thing_name", "bar"),
-                                        context("thing_name", "baz")))))
+                    "things", ArrayList<Any>([context("thing_name", "bar"),
+                                        context("thing_name", "baz")]))))
     }
 
     @TestCase 
     public func testShadowedContext() {
         @Expect(test("foo((bar)(baz))", "{{name}}({{#things}}({{name}}){{/things}})",
             context("name", "foo",
-                    "things", ArrayList<Any>(context("name", "bar"), context("name", "baz")))))
+                    "things", ArrayList<Any>([context("name", "bar"), context("name", "baz")]))))
     }
 
     @TestCase 
     public func testFirst() {
         @Expect(test("foo|bar|baz", "{{#things}}{{^-first}}|{{/-first}}{{this}}{{/things}}",
-            context("things", ArrayList<Any>("foo", "bar", "baz"))))
+            context("things", ArrayList<Any>(["foo", "bar", "baz"]))))
     }
 
     @TestCase 
     public func testLast() {
         @Expect(test("foo|bar|baz", "{{#things}}{{this}}{{^-last}}|{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("foo", "bar", "baz"))))
+            context("things", ArrayList<Any>(["foo", "bar", "baz"]))))
     }
 
     @TestCase 
     public func testFirstLast() { 
         @Expect(test("[foo]", "{{#things}}{{#-first}}[{{/-first}}{{this}}{{#-last}}]{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("foo"))))
+            context("things", ArrayList<Any>(["foo"]))))
         @Expect(test("foo", "{{#things}}{{this}}{{^-last}}|{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("foo"))))
+            context("things", ArrayList<Any>(["foo"]))))
     }
 
     @TestCase 
     public func testFirstLastCombo() {
         @Expect(test("FIRST_and_LAST", "{{#things}}{{#-first}}FIRST{{/-first}}{{this}}{{#-last}}LAST{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("_and_"))))
+            context("things", ArrayList<Any>(["_and_"]))))
     }
 
     @TestCase 
     public func testInverseFirstLastCombo() {  
         @Expect(test("_and_", "{{#things}}{{^-first}}NOT-FIRST{{/-first}}{{this}}{{^-last}}NOT-LAST{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("_and_"))))
+            context("things", ArrayList<Any>(["_and_"]))))
     }
 
     @TestCase 
     public func testNotFirst() { 
         @Expect(test("1,2,3", "{{#things}}{{^-first}},{{/-first}}{{this}}{{/things}}",
-            context("things", ArrayList<Any>("1", "2", "3"))))
+            context("things", ArrayList<Any>(["1", "2", "3"]))))
     }
 
     @TestCase 
     public func testNotLast() {
         @Expect(test("1,2,3", "{{#things}}{{this}}{{^-last}},{{/-last}}{{/things}}",
-            context("things", ArrayList<Any>("1", "2", "3"))))
+            context("things", ArrayList<Any>(["1", "2", "3"]))))
     }
 
     @TestCase 
     public func testIndex() {
         @Expect(test("123", "{{#things}}{{-index}}{{/things}}",
-            context("things", ArrayList<Any>("foo", "bar", "baz"))))
+            context("things", ArrayList<Any>(["foo", "bar", "baz"]))))
     }
 
     @TestCase 
@@ -585,8 +585,8 @@ public class SharedTest {
             "{{#quantity}}|q{{-index}}={{quantity}}{{/quantity}}|{{name}}\n" +
             "{{/fooList}}"
         @Expect(test("|q1=1|a\n|b\n", tmpl,
-            context("fooList", ArrayList<Any>(context("name", "a", "quantity", 1),
-                                            context("name", "b")))))
+            context("fooList", ArrayList<Any>([context("name", "a", "quantity", 1),
+                                            context("name", "b")]))))
     }
 
     @TestCase 
@@ -618,7 +618,7 @@ public class SharedTest {
     public func testStandardsModeWithDotValue() {
         let tmpl = "{{#foo}}:{{.}}:{{/foo}}"
         let mp = HashMap<String, String>()
-        mp.put("foo", "bar")
+        mp.add("foo", "bar")
         let result = Mustache.compiler().standardsMode(true).compile(tmpl).
             execute(mp as Any)
         @Expect(check(":bar:", result))
@@ -819,9 +819,9 @@ public class SharedTest {
         while (ii < data.size) {
             if (ii + 1 >= data.size) { break }
             if (data[ii + 1].isNone()) {
-                ctx.put((data[ii].getOrThrow() as String).getOrThrow(), None)
+                ctx.add((data[ii].getOrThrow() as String).getOrThrow(), None)
             } else {
-                ctx.put((data[ii].getOrThrow() as String).getOrThrow(), (data[ii + 1].getOrThrow() as Any).getOrThrow())
+                ctx.add((data[ii].getOrThrow() as String).getOrThrow(), (data[ii + 1].getOrThrow() as Any).getOrThrow())
             }
             ii += 2
         }
@@ -892,17 +892,17 @@ public class TemplateLoader4 <: TemplateLoader {
 public class GetKeysVisitor <: Visitor {
     public let keys = HashSet<String>()
     public func visitText (_: String): Unit {}
-    public func visitVariable (name: String): Unit { keys.put(name) }
+    public func visitVariable (name: String): Unit { keys.add(name) }
     public func visitInclude (name: String): Bool { 
-        keys.put(name)
+        keys.add(name)
         return true
     }
     public func visitSection (name: String): Bool {
-        keys.put(name)
+        keys.add(name)
         return true
     }
     public func visitInvertedSection (name: String): Bool { 
-        keys.put(name) 
+        keys.add(name) 
         return true 
     }
 }

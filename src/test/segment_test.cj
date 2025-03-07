@@ -37,7 +37,7 @@ public class StringSegmentTest {
         var index: Int64 = 0
         let arr = ArrayList<Int64>()
         while (let Some(elem) <- iter.next()) {
-            arr.append(elem)
+            arr.add(elem)
         }
         var count = arr.size
         for (elem in arr) {

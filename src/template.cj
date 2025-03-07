@@ -295,7 +295,7 @@ public class Template {
 
         let value = (fetcher.getOrThrow()).
             get(extractedData, name)
-        _fcache.put(key.toString(), fetcher.getOrThrow())
+        _fcache.add(key.toString(), fetcher.getOrThrow())
         return value
     }
 

@@ -38,23 +38,23 @@ public class TemplateTest {
         info3 = TypeInfo.of(testclass3)
         info4 = TypeInfo.of(testclass4)
         mp = HashMap<String, Any>()
-        mp.put("foo", "bar")
-        mp.put("arr", [1, 2, 3])
+        mp.add("foo", "bar")
+        mp.add("arr", [1, 2, 3])
         arrInt = [1, 2, 3]
         arrStr = ["foo", "bar", "tony", "tom", "aili"]
         arrStr2 = [["foo"], ["bar"]]
         anyIterStr = (arrStr.iterator() as Any).getOrThrow()
-        listStr = ArrayList<String>("foo", "bar")
-        listInt = ArrayList<Int64>(1, 2)
+        listStr = ArrayList<String>(["foo", "bar"])
+        listInt = ArrayList<Int64>([1, 2])
         arrMp1 = HashMap<String, Any>()
-        arrMp1.put("foo", (listStr as Any).getOrThrow())
+        arrMp1.add("foo", (listStr as Any).getOrThrow())
         arrMp2 = HashMap<String, Any>()
         arrMp3 = HashMap<String, Any>()
-        arrMp2.put("bar", ("woo" as Any).getOrThrow())
-        arrMp3.put("woo", ("tom" as Any).getOrThrow())
-        listMp = ArrayList<Any>(arrMp2, arrMp3)
+        arrMp2.add("bar", ("woo" as Any).getOrThrow())
+        arrMp3.add("woo", ("tom" as Any).getOrThrow())
+        listMp = ArrayList<Any>([arrMp2, arrMp3])
         arrMp4 = HashMap<String, Any>()
-        arrMp4.put("foo", listMp)
+        arrMp4.add("foo", listMp)
     }
 
     @TestCase

@@ -13,7 +13,7 @@ import std.reflect.*
 public class BasicCollectorTest {
     @TestCase
     public func ArrayHelper1Test() {
-        let anyArr = (ArrayList<Any>(1, "Hello", [1, 2, 3]).
+        let anyArr = (ArrayList<Any>([1, "Hello", [1, 2, 3]]).
         toArray() as Any).getOrThrow()
         let arrHelper = GenericArrayHelpe<Any>()
         @Expect(arrHelper.length(anyArr), 3)
@@ -169,8 +169,8 @@ public class BasicCollectorTest {
     @TestCase
     public func VariableFetcher3Test() {
         let mp = HashMap<String, Any>()
-        mp.put("foo", ("bar" as Any).getOrThrow())
-        mp.put("arr", ([1, 2, 3] as Any).getOrThrow())
+        mp.add("foo", ("bar" as Any).getOrThrow())
+        mp.add("arr", ([1, 2, 3] as Any).getOrThrow())
         let anyMp = (mp as Any).getOrThrow()
         let fetcher = MapVariableFetcher()
         @Expect((fetcher.get(anyMp, "foo").
@@ -189,7 +189,7 @@ public class BasicCollectorTest {
 
     @TestCase
     public func VariableFetcher4Test() {
-        let arr1 = ArrayList<String>("foo", "bar")
+        let arr1 = ArrayList<String>(["foo", "bar"])
         let anyArr1 = (arr1 as Any).getOrThrow()
         let fetcher = ListVariableFetcher()
         @Expect((fetcher.get(anyArr1, "0").
@@ -207,9 +207,9 @@ public class BasicCollectorTest {
             None, None, 0, false, false)
         let ctx2 = Context(
             ctx1 as Any, None, 0, false ,false)
-        let arr2 = ArrayList<Context>(
+        let arr2 = ArrayList<Context>([
             Context(None, None, 0, false, false), 
-        Context(ctx1 as Any, None, 0, false ,false))
+        Context(ctx1 as Any, None, 0, false ,false)])
         let anyArr2 = (arr2 as Any).getOrThrow()
         @Expect(refEq((fetcher.get(anyArr2, "0").
         getOrThrow() as Context).
@@ -242,10 +242,10 @@ public class BasicCollectorTest {
             None, None, 0, false, false)
         let ctx2 = Context(
             ctx1 as Any, None, 0, false ,false)
-        let arr2 = ArrayList<Context>(Context(
+        let arr2 = ArrayList<Context>([Context(
             None, None, 0, false, false), 
         Context(
-            ctx1 as Any, None, 0, false ,false))
+            ctx1 as Any, None, 0, false ,false)])
         let anyIter2 = (arr2.iterator() as Any).
         getOrThrow()
         @Expect(refEq((fetcher.get(anyIter2, "0").
@@ -308,7 +308,7 @@ public class BasicCollectorTest {
 
     @TestCase
     public func toIteratorTest() {
-        let list = ArrayList<String>("foo", "bar")
+        let list = ArrayList<String>(["foo", "bar"])
         let listIter = BasicCollector.
         toIterator<String>((list as Any).
         getOrThrow()).getOrThrow()

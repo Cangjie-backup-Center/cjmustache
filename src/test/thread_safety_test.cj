@@ -46,7 +46,7 @@ public class ThreadSafetyTest {
                 }
             }
 
-            threads.append(fut)
+            threads.add(fut)
         }
 
         sleep(Duration.second)
@@ -70,7 +70,7 @@ public class ThreadSafetyTest {
         let q = NonBlockingQueue<Exception>()
 
         let m = HashMap<String, Any>()
-        m.put("stuff", "Foo")
+        m.add("stuff", "Foo")
         let threads = ArrayList<Future<Unit>>()
 
         for (_ in 0..100) {
@@ -82,7 +82,7 @@ public class ThreadSafetyTest {
                     let skipBool = q.enqueue(e)
                 }
             }
-            threads.append(fut)
+            threads.add(fut)
         }
 
         for (f in threads) {
