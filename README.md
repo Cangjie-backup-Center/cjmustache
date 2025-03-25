@@ -17,7 +17,7 @@
 您只需要在项目的cjpm.toml下的加入：
 
 ```cangjie
-  cjmustache = { git = "https://gitcode.com/naxida/cjmustache.git", output-type = "static", branch = "main"}
+  cjmustache = { git = "https://gitcode.com/naxida/cjmustache.git", output-type = "static", branch = "master"}
 ```
 
 继续在控制台输入`cjpm update`即可引入本项目。
