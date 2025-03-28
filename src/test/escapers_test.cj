@@ -8,7 +8,6 @@ import std.io.*
 import std.math.*
 import std.collection.*
 import std.convert.*
-import std.reflect.*
 
 @Test
 public class EscapersTest {
@@ -47,10 +46,8 @@ public class EscapersTest {
     @TestCase
     public func escaper2Test() {
         let escaper = NoneEscaper()
-        @Expect(escaper.escape("").
-        equalsIgnoreAsciiCase(""))
-        @Expect(escaper.escape("foo").
-        equalsIgnoreAsciiCase("foo"))
+        @Expect(escaper.escape("") == "")
+        @Expect(escaper.escape("foo") == "foo")
     }
 
     @TestCase
@@ -58,12 +55,9 @@ public class EscapersTest {
         let mappings1 = [["A", 'a'], ["B", 'b'], ["C", "c"]]
         let table1 = Lookup7bitEscaper.
         createTable(mappings1).getOrThrow()
-        @Expect((table1[Int64(b'A')].getOrThrow()).
-        equalsIgnoreAsciiCase("a"))
-        @Expect((table1[Int64(b'B')].getOrThrow()).
-        equalsIgnoreAsciiCase("b"))
-        @Expect((table1[Int64(b'C')].getOrThrow()).
-        equalsIgnoreAsciiCase("c"))
+        @Expect((table1[Int64(b'A')].getOrThrow()) == "a")
+        @Expect((table1[Int64(b'B')].getOrThrow()) == "b")
+        @Expect((table1[Int64(b'C')].getOrThrow()) == "c")
 
         let mappings2 = [["中", "a"]]
         @ExpectThrows[NoneValueException](
@@ -78,11 +72,11 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'A').
-        getOrThrow()).equalsIgnoreAsciiCase("a"))
+        getOrThrow()) == "a")
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'B').
-        getOrThrow()).equalsIgnoreAsciiCase("b"))
+        getOrThrow()) == "b")
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'C').
-        getOrThrow()).equalsIgnoreAsciiCase("c"))
+        getOrThrow()) == "c")
         @ExpectThrows[NoneValueException](
             Lookup7bitEscaper.escapeChar(table1, r'李').
             getOrThrow()

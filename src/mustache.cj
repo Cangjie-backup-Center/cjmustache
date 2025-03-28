@@ -1,9 +1,9 @@
 package cjmustache
 
 import serialization.serialization.*
+import std.collection.concurrent.*
 import std.collection.*
 import encoding.json.*
-import std.reflect.*
 import std.unicode.*
 import std.sync.*
 import std.io.*
@@ -99,7 +99,7 @@ public class Mustache {
                     sect.standaloneEnd(true)
                 }
                 if (sect is ParentTemplateSegment && 
-                    !indent.equalsIgnoreAsciiCase("")) {
+                    !(indent == "")) {
                     segs[ii] = 
                         (sect as ParentTemplateSegment).getOrThrow().
                         indent(indent, pseg.isNone(), nseg.isNone())
@@ -113,7 +113,7 @@ public class Mustache {
                 if (!prev.isNone() && prevBlank && nextBlank) {
                     let indent: String = prev.getOrThrow().indent()
                     include._standalone = true
-                    if (!indent.equalsIgnoreAsciiCase("")) {
+                    if (!(indent == "")) {
                         include = include.indent(
                             indent, pseg.isNone(), nseg.isNone())
                         segs[ii] = include 
@@ -154,34 +154,32 @@ public class Mustache {
         _first: Bool, _last: Bool): Array<Segment> {
         /* 与trim不同，此方法在段发生更改时克隆段，因此必须处理返回值；
          * 可以使用对返回的简单身份检查来确定是否存在change_last:Bool */
-        if (indent.equalsIgnoreAsciiCase("")) {
+        if (indent == "") {
             return _segs
         }
 
-        let length: Int64 = _segs.size
+        let length = _segs.size
         let copySegs = ArrayList<Segment>()
-        var changed: Bool = false
+        var changed = false
 
         for (i in 0.._segs.size) {
             let seg: Segment = _segs[i]
 
             let pseg: ?Segment = if (i > 0) { 
-                _segs[i-1]
-            }
-            else { 
-                None
-            }
+                                    _segs[i-1]
+                                } else { 
+                                    None
+                                }
+
             let nseg: ?Segment = if (i < length - 1) {
-                _segs[i+1]
-            }
-            else {
-                None 
-            }
+                                    _segs[i+1]
+                                } else {
+                                    None 
+                                }
 
             var copy: Segment
             if (seg is AbstractSectionSegment) {
-                let abseg = 
-                (seg as AbstractSectionSegment).getOrThrow()
+                let abseg = (seg as AbstractSectionSegment).getOrThrow()
                 var first: Bool
                 var last: Bool
 
@@ -320,35 +318,8 @@ public class DefenseTemplateLoader <: TemplateLoader {
 }
 
 public class DefaultFormatter <: Formatter {
-    public func format(rvalue: ?Any): String {
-        if (let Some(value) <- rvalue) {
-            if (value is Option<Any>) {
-                if (let Some(temp) <- (value as Option<Any>).getOrThrow()) {
-                    return formatHelper(temp)
-                }
-            }
-            return formatHelper(value)
-        }
-
-        return ""
-    }
-
-    public func formatHelper(value: Any): String {
-        if (value is Int64) {
-            return ((value as Int64).getOrThrow()).toString()
-        } else if (value is String) {
-            return (value as String).getOrThrow()
-        } else if (value is ByteArrayStream) {
-            return String.fromUtf8(
-                (value as ByteArrayStream).getOrThrow().readToEnd())
-        } else if (value is Bool) {
-            return (value as Bool).getOrThrow().toString()
-        } else if (value is (String, String)) {
-            let tuple = (value as (String, String)).getOrThrow()
-            return tuple[0] + "=" + tuple[1]
-        }
-
-        return ""
+    public func format(data: DataModel): String {
+        return data.toString()
     }
 }
 
@@ -506,7 +477,7 @@ public class Compiler {
                         this._delims)
     }
 
-    /** 配置用于将对象转换为字符串的｛@link格式化程序｝ */
+    /** 配置用于将对象转换为字符串｛@link格式化程序｝ */
     public func withFormatter(_formatter: Formatter): Compiler {
         return Compiler(this._standardsMode, this._strictSections, this._nullValue,
                         this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
@@ -545,57 +516,26 @@ public class Compiler {
     }
 
     /** 返回在模板中用于空值属性{@code-name}的值。有关更多详细信息，请参阅｛@link#nullValue｝ */
-    public func computerNullValue(name: String): ?String {
-        if (_nullValue.isNone()) { return None }
-        return _nullValue.getOrThrow().replace("{{name}}", name)
+    public func computerNullValue(name: String): DataModel {
+        if (_nullValue.isNone()) { return DataModelNull() }
+        return _nullValue.getOrThrow().replace("{{name}}", name).serialize()
     }
 
     /** 如果提供的值为“false”，则返回true。如果{@link#emptyStringIsFalse}为true，
       * 则空字符串被视为false。如果{@link#zeroIsFalse}为真，则零值被视为假 */
-    public func isFalsey(value: ?Any): Bool {
-        if (value.isNone()) { 
-            return true 
-        }
-
-        let extractedValue = value.getOrThrow()
-        let flag1 = (_emptyStringIsFalse && 
-            isEmptyCharSequence(
-                _formatter.format(extractedValue)))
-        if (flag1 == true) { 
-            return true 
-        }
-
-        var flag2 = false
-        if (extractedValue is Int64) {
-            flag2 = (_zeroIsFalse && 
-                (extractedValue as Int64).
-                getOrThrow() == 0)
-        } else if (extractedValue is Int32) {
-            flag2 = (_zeroIsFalse && 
-                (extractedValue as Int32).
-                getOrThrow() == 0i32)
-        } else if (extractedValue is Float32) {
-            flag2 = (_zeroIsFalse && 
-                (extractedValue as Float32).
-                getOrThrow() == 0.0f32)
-        } else if (extractedValue is Float64) {
-            flag2 = (_zeroIsFalse && 
-                (extractedValue as Float64).
-                getOrThrow() == 0.0f64)
-        }
-
-        return flag1 || flag2
+    public func isFalsey(value: DataModel): Bool {
+        return ((_emptyStringIsFalse && isEmptyCharSequence(_formatter.format(value).serialize())) ||
+                (_zeroIsFalse && (value is DataModelInt) && (value as DataModelInt).getOrThrow().getValue() == 0) || 
+                (_zeroIsFalse && (value is DataModelFloat) && (value as DataModelFloat).getOrThrow().getValue() == 0.0f64))
     }
 
     /** 替换“.equals（value）”。例如，长度为0的值不能为空 */
-    public func isEmptyCharSequence(value: ?Any): Bool {
-        if (let Some(extractedValue) <- value) {
-            if (extractedValue is String) {
-                return (extractedValue as String).
-                getOrThrow().size == 0
-            }
-        }
+    public func isEmptyCharSequence(value: DataModel): Bool {
         
+        if (let Some(strValue) <- (value as DataModelString)) {
+            return strValue.getValue().size == 0
+        }
+
         return false
     }
 
@@ -610,12 +550,8 @@ public class Compiler {
             tin = _loader.getTemplate(name)
             return compile(tin.getOrThrow())
         } catch (e: Exception) {
-            if (isRuntimeException(e)) {
-                throw RuntimeException(e)
-            } else {
                 throw MustacheException(
                     "Unable to load template: " + name, e)
-            }
         } 
     }
 }
@@ -699,12 +635,14 @@ protected class Parser {
                 Mustache.restoreStartTag(text, delims)
                 accum.addTextSegment(text)
                 tagStartColumn = column
+
                 if (delims.start2 == Mustache.NO_CHAR) {
                     accum.addTextSegment(text)
                     state = Mustache.TAG
                 } else {
                     state = Mustache.MATCHING_START
                 }
+
             } else {
                 text.append(c)
             }
@@ -719,6 +657,7 @@ protected class Parser {
                     if (delims.isStaches() && 
                         text.toString().toRuneArray()[0] == delims.start1) {
                         var end3: Int64 = nextChar()
+
                         if (Rune(end3) != r'}') {
                             let got: String = if (end3 == 0) { "" }
                             else { String(Rune(end3)) }
@@ -726,6 +665,7 @@ protected class Parser {
                                 "Invalid triple-mustache tag: {{" +
                                 text.toString() + "}}" + got, line)
                         }
+
                         text.replace(0, 1, "&")
                     }
                     accum = accum.addTagSegment(text, line)
@@ -768,8 +708,7 @@ open protected class Accumlator {
     /* 将普通文本添加为模板片段。这个方法会将 StringBuilder 中的内容转化为 StringSegment 对象，存储在 _segs 列表中 */
     public func addTextSegment(text: StringBuilder): Unit {
         if (text.size > 0) {
-            _segs.append(StringSegment(text.toString(),
-                        _segs.isEmpty() && _topLevel))
+            _segs.append(StringSegment(text.toString(), _segs.isEmpty() && _topLevel))
             text.reset(capacity: Some(1))
         }
     }
@@ -847,7 +786,7 @@ open protected class Accumlator {
 
     protected static func requireSameName(
         name1: String, name2: String, line: Int64): Unit {
-        if (!name1.equalsIgnoreAsciiCase(name2)) {
+        if (!(name1 == name2)) {
             MustacheParseException(
                 "Section close tag with mismatched open tag '" +
                     name2 + "' != '" + name1 + "'", line)
@@ -1007,54 +946,35 @@ public class Delims {
 /** 处理渲染模板时将对象转换为字符串 
  */
 public interface Formatter { 
-    /** 将 {@code value} 转换为 String 以包含在模板中
+    /** 将 @Param value 转换为 String 以包含在模板中
       */
-    func format(value: ?Any): String
-}
-
-/** 处理 lambda 
- */
-public interface Lambda {
-    /** 对提供的模板片段执行此lambda。lambda应该将结果输出到{@code-out}。
-      * @param frag : 传递给lambda的模板片段。
-      * @param out  : lambda应该将其输出写入的写入器。
-      */
-    func execute(frag: Fragment, out: OutputStream): Unit
-}
-
-/** 处理也为反向分区调用的lambdas 
- */
-public interface InvertibleLambda <: Lambda {
-    /** 当lambda用于反向部分时，在提供的模板片段上执行此lambda。lambda应该将其结果写入{@code out}。
-      * @param frag : 传递给lambda的模板片段
-      * @param out  : lambda应该将其输出写入的写入器。
-      */
-    func executeInverse(frag: Fragment, out: OutputStream): Unit
+    func format(value: DataModel): String
 }
 
 public interface VariableFetcher {
-    /** 从提供的上下文对象中读取如此命名的变量 
+    /** 从提供的上下文对象中读取名为 @Param name 的变量 
       */
-    func get(ctx: Any, name: String): ?Any
+    func get(ctx: DataModel, name: String): DataModel
 }
 
 /* 处理替换文本中的转义字符 */
 public interface Escaper {
-    /* 返回{@code raw}，并用转义序列替换相应的字符 */
+    /* 用转义序列替换相应的字符 */
     func escape(raw: String): String
 
     /**
-      * 如果需要，使用转义序列转义原始字符，并将其附加到可追加/可写字符中
-      * @param a            ：可追加/可写的流对象
-      * @param raw          ：输入字符串
-      * @throws IOException ：如果在写入可追加内容时发生错误
+      * 如果需要，使用转义序列转义原始字符，并将其附加到可追加/可写字符序列中
+      * @param stringBuilder  : 可追加/可写的字符串构造器
+      * @param out            ：可追加/可写的流对象
+      * @param raw            ：输入字符串
       */
     func escape(
-        sb: ?StringBuilder, out: ?OutputStream, 
+        stringBuilder: ?StringBuilder, out: ?OutputStream, 
         raw: String): Unit {
-        appendOrWrite(sb, out, raw)
+        appendOrWrite(stringBuilder, out, raw)
     }
 
+    // 由子对象选择实现，不实现就使用的话将抛出异常 @throws UnInplementException
     func toString(): String {
         throw UnInplementException()
     }
@@ -1065,21 +985,10 @@ public interface Escaper {
 /** 处理加载部分(partial)模板 
  */
 public interface TemplateLoader {
-    /** 返回具有提供名称的模板的读取器。
-      * 被呼叫者(Reader)将关闭阅读器。
-      * @如果模板因任何原因无法加载，则抛出异常*/
+    /** 返回具有提供名称的模板的输入流对象*/
     func getTemplate(name: String): InputStream
 }
 
-/** 提供了一种实现变量查找自定义逻辑的方法。如果上下文对象实现了此接口，
-  * 则其{@code-get}方法将用于查找变量，而不是通常的方法 
-  * 这比使用上下文实现{@link Map}更简单，后者需要它也支持
-  * {@link Map#entrySet}方法进行迭代。｛@code CustomContext｝对象不能用于列表节(list section)
-  */
-public interface CustomContext {
-    /** 获取名为{@code name}的变量的值 */
-    func get(name: String): ?Any
-}
 
 /**用于在不执行模板的情况下访问模板中的标签*/
 public interface Visitor {
@@ -1131,21 +1040,13 @@ public interface Visitor {
 }
 
 public interface Collector {
-    /** 返回一个迭代器，可以迭代提供的值，如果值不是集合，则返回null
+    /** 在提供的上下文对象中为名为 @Param name 的变量创建一个提取器，该提取器永远不会为None。
+      * 其中 fetcher 将被缓存，并在未来的上下文中重用，
       */
-    static func toIterator<T>(value: Any): ?Iterator<T>
+    func createFetcher(ctx: DataModel, name: String): ?VariableFetcher
 
-    /** 在提供的上下文对象中为如此命名的变量创建一个提取器，该提取器永远不会为null。
-      * fetcher将被缓存，并在未来的上下文中重用，
-      * 其中{@code octx.getClass（）.等于（nctx.getClass（）}
-      */
-    func createFetcher(ctx: Any, name: String): ?VariableFetcher
-
-    /** 创建用于缓存｛@link VariableFetcher｝实例的映射。
-      * GWT兼容的收集器在这里返回一个HashMap，但基于反射的提取器
-      * 返回一个并发HashMap
-      */
-    func createFetcherCache(): HashMap<String, VariableFetcher>
+    /** 创建用于缓存 VariableFetcher实例的映射。*/
+    func createFetcherCache(): ConcurrentHashMap<String, VariableFetcher>
 }
 
 
@@ -1180,10 +1081,8 @@ protected class VariableSegment <: NamedSegment {
 
     public override func execute(tmpl: Template, ctx: Context, 
         out: OutputStream): Unit {
-        if (let Some(value) <- 
-            tmpl.getValueOrDefault(ctx, _name, _line)) {
-            escape(out, _formatter.format(value), _escaper)
-        } else {
+        let value = tmpl.getValueOrDefault(ctx, _name, _line)   
+        if (value is DataModelNull) {
             let msg: String = if (Template.isThisName(_name)) {
                 "Resolved '.' to null (which is disallowed), on line " +
                     _line.toString()
@@ -1193,6 +1092,7 @@ protected class VariableSegment <: NamedSegment {
             }
             throw MustacheException(msg)
         }
+        escape(out, _formatter.format(value), _escaper)
     } 
 
     public override func decompile(delims: Delims, 
@@ -1221,34 +1121,31 @@ protected class VariableSegment <: NamedSegment {
 protected interface StandaloneSection <: BlockReplaceable {
     func firstLeadsBlank(): Bool {
         let _segs = segs()
-        if (_segs.size == 0 ||
-            !(_segs[0] is StringSegment)) { 
+        if (_segs.size == 0 || !(_segs[0] is StringSegment)) { 
             return false 
         }
-        return (_segs[0] as StringSegment).
-        getOrThrow().leadsBlank()
+        return (_segs[0] as StringSegment).getOrThrow().leadsBlank()
     }
 
     func trimFirstBlank(): Unit {
         let _segs = segs()
-        _segs[0] = (_segs[0] as StringSegment).
-        getOrThrow().trimLeadBlank()
+        _segs[0] = (_segs[0] as StringSegment).getOrThrow().trimLeadBlank()
     }
 
     func lastTrailsBlank(): Bool {
         let _segs = segs()
-        let lastIdx: Int64 = _segs.size - 1
-        if (_segs.size == 0 || 
-            !(_segs[lastIdx] is StringSegment)) { 
+        let lastIdx = _segs.size - 1
+
+        if (_segs.size == 0 || !(_segs[lastIdx] is StringSegment)) { 
             return false 
         }
-        return (_segs[lastIdx] as StringSegment).
-        getOrThrow().trailsBlank()
+
+        return (_segs[lastIdx] as StringSegment).getOrThrow().trailsBlank()
     }
 
     func trimLastBlank(): Unit {
         let _segs = segs()
-        let lastIdx: Int64 = _segs.size - 1
+        let lastIdx = _segs.size - 1
         _segs[lastIdx] = (_segs[lastIdx] as StringSegment).
         getOrThrow().trimTrailBlank()
     }
@@ -1312,6 +1209,7 @@ protected abstract class AbstractSectionSegment <: NamedSegment & StandaloneSect
     protected var _standaloneEnd: Bool = false
 }
 
+// 如果可迭代，则迭代执行
 protected class SectionSegment <: AbstractSectionSegment {
     public init(compiler: Compiler, name: String, 
         segs: Array<Segment>, line: Int64) {
@@ -1325,45 +1223,14 @@ protected class SectionSegment <: AbstractSectionSegment {
     
     public override func execute(tmpl: Template, 
         ctx: Context, out: OutputStream): Unit {
-        if (let Some(value) <- 
-            tmpl.getSectionValue(ctx, _name, _line)) {
-            var valueTypeStr: String = ""
-            try {
-                valueTypeStr = getDataType(value)
-            } catch (e: Exception) {
-                executeHelper<String>(None, tmpl, ctx, out, value)
-                return 
-            }
+        let value = tmpl.getSectionValue(ctx, _name, _line)
+        
+        if (let Some(iterValue) <- (value as DataModelSeq)) {
+            let iter = iterValue.getItems().iterator()
 
-            if (valueTypeStr.split(",").size != 1) {
-                executeHelper<String>(None, tmpl, ctx, out, value)
-                return 
-            }
-
-            match (valueTypeStr) {
-                case "String" => let iter = DefaultCollector.toIterator<String>(value)
-                                executeHelper<String>(iter, tmpl, ctx, out, value)
-                case "Context" => let iter = DefaultCollector.toIterator<Context>(value)
-                                executeHelper<Context>(iter, tmpl, ctx, out, value)
-                case "Int64" => let iter = DefaultCollector.toIterator<Int64>(value)
-                                executeHelper<Int64>(iter, tmpl, ctx, out, value)
-                case "Option" => let iter = DefaultCollector.toIterator<?Any>(value)
-                                executeHelper<?Any>(iter, tmpl, ctx, out, value)
-                case "Tuple" => let iter = DefaultCollector.toIterator<(String, String)>(value)
-                                executeHelper<(String, String)>(iter, tmpl, ctx, out, value)
-                case "" => return 
-                case _ =>       let iter = DefaultCollector.toIterator<Any>(value)
-                                executeHelper<Any>(iter, tmpl, ctx, out, value)
-            }
-        }
-    }
-
-    private func executeHelper<T>(iter: ?Iterator<T>, tmpl: Template, 
-            ctx: Context, out: OutputStream, value: Any): Unit {
-        if (let Some(extractedIter) <- iter) {
-            var index: Int64 = 0
-            let list = ArrayList<T>()
-            while (let Some(elem) <- extractedIter.next()) {
+            var index = 0
+            let list = ArrayList<DataModel>()
+            while (let Some(elem) <- iter.next()) {
                 list.append(elem)
             }
 
@@ -1376,16 +1243,9 @@ protected class SectionSegment <: AbstractSectionSegment {
                 executeSegs(tmpl, 
                 ctx.next(elem, index, onFirst, onLast), out)
             }
-        } else if (value is Bool) {
-            if ((value as Bool).getOrThrow()) {
+        } else if (let Some(boolValue) <- (value as DataModelBool)) {
+            if (boolValue.getValue()) {
                 executeSegs(tmpl, ctx, out)
-            }
-        } else if (value is Lambda) {
-            try {
-                let temp = (value as Lambda).getOrThrow()
-                temp.execute(tmpl.createFragment(_segs, ctx), out)
-            } catch (ioe: IOException) {
-                throw MustacheException(ioe)
             }
         } else if (_comp.isFalsey(value)) {
             // omit the section
@@ -1543,7 +1403,7 @@ protected abstract class AbstractPartialSegment <: NamedSegment {
     public func isStandalone(): Bool
 }
 
-/** 一个按规范加载和执行子模板的段，称为分部 */
+/** 一个按规范加载和执行子模板的段，称为段(Segment) */
 protected class IncludedTemplateSegment <: AbstractPartialSegment {
     public init(compiler: Compiler, name: String, line: Int64) {
         super(compiler, name, line, "")
@@ -1572,7 +1432,7 @@ protected class IncludedTemplateSegment <: AbstractPartialSegment {
         }
 
         let r_standalone = _standalone.getOrThrow()
-        if (indent.equalsIgnoreAsciiCase("") ||
+        if (indent == "" ||
             !r_standalone) {
             return this
         }
@@ -1645,7 +1505,7 @@ protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSecti
 
     public override func indent(indent: String, 
         _: Bool, _: Bool): ParentTemplateSegment {
-        if (indent.equalsIgnoreAsciiCase("") ||
+        if (indent == "" ||
             !_standaloneStart) {
             return this
         }
@@ -1668,18 +1528,26 @@ protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSecti
     public override func lastTrailsBlank(): Bool {
         let _segs: Array<Segment> = segs()
         let lastIdx: Int64 = _segs.size - 1 
-        if (lastIdx < 0) { return true }
-        if (!(_segs[lastIdx] is StringSegment)) { return false }
-        return (_segs[lastIdx] as StringSegment).
-        getOrThrow().trailsBlank()
+
+        if (lastIdx < 0) { 
+            return true 
+        }
+
+        if (!(_segs[lastIdx] is StringSegment)) { 
+                return false 
+            }
+        return (_segs[lastIdx] as StringSegment).getOrThrow().trailsBlank()
     }
 
     public override func trimLastBlank(): Unit {
         let _segs: Array<Segment> = segs()
-        let idx: Int64 = _segs.size - 1 
-        if (idx < 0) { return }
-        _segs[idx] = (_segs[idx] as StringSegment).
-        getOrThrow().trimTrailBlank()
+        let idx: Int64 = _segs.size - 1
+        
+        if (idx < 0) { 
+            return 
+        }
+
+        _segs[idx] = (_segs[idx] as StringSegment).getOrThrow().trimTrailBlank()
     }
 
     public override func replaceBlocks(
@@ -1726,62 +1594,28 @@ protected class InvertedSegment <: AbstractSectionSegment {
 
     public override func execute(tmpl: Template, 
         ctx: Context, out: OutputStream): Unit {
-        if (let Some(value) <- tmpl.getSectionValue(ctx, _name, _line)) {
-            var valueTypeStr: String = ""
-            try {
-                valueTypeStr = getDataType(value)
-            } catch (e: Exception) {
-                executeHelper<String>(None, tmpl, ctx, out, value)
-                return 
-            }
-            if (valueTypeStr.split(",").size != 1) {
-                executeHelper<String>(None, tmpl, ctx, out, value)
-                return 
-            }
-
-            match (valueTypeStr) {
-                case "String" => let iter = DefaultCollector.toIterator<String>(value)
-                                executeHelper<String>(iter, tmpl, ctx, out, value)
-                case "Context" => let iter = DefaultCollector.toIterator<Context>(value)
-                                executeHelper<Context>(iter, tmpl, ctx, out, value)
-                case "Int64" => let iter = DefaultCollector.toIterator<Int64>(value)
-                                executeHelper<Int64>(iter, tmpl, ctx, out, value)
-                case "Option" => let iter = DefaultCollector.toIterator<?Any>(value)
-                                executeHelper<?Any>(iter, tmpl, ctx, out, value)
-                case "" => return
-                case _ =>       let iter = DefaultCollector.toIterator<Any>(value)
-                                executeHelper<Any>(iter, tmpl, ctx, out, value)
-            }
-        }
-    }
-
-    private func executeHelper<T>(piter: ?Iterator<T>, tmpl: Template,
-        ctx: Context, out: OutputStream, value: Any): Unit {
-        if (let Some(extracedIter) <- piter) {
-            if (extracedIter.next().isNone()) {
+        let value = tmpl.getSectionValue(ctx, _name, _line)
+        if (let Some(iterValue) <- (value as DataModelSeq)) {
+            let iter = iterValue.getItems().iterator()
+            if (iter.next().isNone()) {
                 executeSegs(tmpl, ctx, out)
             }
-        } else if (value is Bool) {
-            if (!(value as Bool).getOrThrow()) {
+        } else if (let Some(boolValue) <- (value as DataModelBool)) {
+            if (!boolValue.getValue()) {
                 executeSegs(tmpl, ctx, out)
-            }
-        } else if (value is InvertibleLambda) {
-            try {
-                (value as InvertibleLambda).getOrThrow().
-                executeInverse(tmpl.createFragment(_segs, ctx), out)
-            } catch (ioe: IOException) {
-                throw MustacheException(ioe)
             }
         } else if (_comp.isFalsey(value)) {
             executeSegs(tmpl, ctx, out)
-        } // TODO: fail?
+        }
     }
+
     public override func decompile(delims: Delims,
         into: StringBuilder): Unit {
         delims.addTag(r'$', _name, into)
         for (seg in _segs) { seg.decompile(delims, into) }
         delims.addTag(r'/', _name, into)
     }
+
     public override func visit(visitor: Visitor): Unit {
         if (visitor.visitInvertedSection(_name)) {
             for (seg in _segs) {
@@ -1789,6 +1623,7 @@ protected class InvertedSegment <: AbstractSectionSegment {
             }
         }
     }
+
     protected override func indent(indent: String, 
         first: Bool, last: Bool): InvertedSegment {
         let segs: Array<Segment> = Mustache.indentSegs(
@@ -1798,6 +1633,7 @@ protected class InvertedSegment <: AbstractSectionSegment {
         }
         return InvertedSegment(this, segs)
     }
+
     public override func replaceBlocks(
         blocks: HashMap<String, BlockSegment>): InvertedSegment {
         let segs: Array<Segment> = Mustache.
@@ -1807,6 +1643,7 @@ protected class InvertedSegment <: AbstractSectionSegment {
         }
         return InvertedSegment(this, segs)
     }
+    
     public func toString() {
         return "Inverted(" + _name + ":" + 
         _line.toString() + "): " + _segs._toString();
@@ -1814,7 +1651,6 @@ protected class InvertedSegment <: AbstractSectionSegment {
 }
 
 /** 再现字符串的简单片段 */
-
 protected class FauxSegment <: Segment {
     public override func execute(_: Template, 
         _: Context, _: OutputStream): Unit {}
@@ -1834,7 +1670,11 @@ protected class FauxSegment <: Segment {
 
 protected class StringSegment <: Segment {
     public StringSegment(let _text: String, let _leadBlank: Int64, 
-        let _trailBlank: Int64, let _first: Bool) { }
+        let _trailBlank: Int64, let _first: Bool) {
+            if (!(_leadBlank >= -1) || !(_trailBlank >= -1)) {
+                throw Exception("_leadBlank or _trailBlank < -1")
+            }
+        }
 
     public init(text: String, first: Bool) {
         this(text, blankPos(text, true, first),
@@ -1844,8 +1684,8 @@ protected class StringSegment <: Segment {
 
     /* 判断当前字符串片段是否有前导空白或尾随空白。
      * 返回 _leadBlank 和 _trailBlank 是否等于 -1 来确定是否有空白 */
-    public func leadsBlank(): Bool { _leadBlank != -1 }
-    public func trailsBlank(): Bool { _trailBlank != -1 }
+    public func leadsBlank(): Bool { return _leadBlank != -1 }
+    public func trailsBlank(): Bool { return _trailBlank != -1 }
     
     /* 这两个方法分别用于修剪字符串片段的前导和尾随空白字符，返回新的 StringSegment 实例 */
     public func trimLeadBlank(): StringSegment {
@@ -1853,18 +1693,22 @@ protected class StringSegment <: Segment {
             return this 
         }
 
-        let lpos: Int64 = _leadBlank + 1
-        let newTrail = if (_trailBlank == -1) { -1 }
-                        else { _trailBlank - lpos }
-                        
+        let lpos = _leadBlank + 1
+        let newTrail = if (_trailBlank == -1) {
+                            -1 
+                        } else { 
+                            _trailBlank - lpos 
+                        }
+
         StringSegment(_text[lpos..], -1, newTrail, _first)
     } 
     
     public func trimTrailBlank(): StringSegment {
-        if (_trailBlank == -1) { 
-            return this 
-        } else { return StringSegment(_text[0.._trailBlank],
-            _leadBlank, -1, _first)}
+        return if (_trailBlank == -1) { 
+            this 
+        } else { 
+            StringSegment(_text[0.._trailBlank], _leadBlank, -1, _first)
+        }
     }
 
     /** 计算部分标识的缩进,如果字符串尾部没有空白或者尾随空白超出了字符串长度，
@@ -1881,7 +1725,7 @@ protected class StringSegment <: Segment {
     public func indent(indent: String, 
         first: Bool, last: Bool): StringSegment {
 
-        if (indent.equalsIgnoreAsciiCase("")) { 
+        if (indent == "") { 
             return this
         }
 
@@ -1916,11 +1760,11 @@ protected class StringSegment <: Segment {
      * 如果在字符串中遇到换行符，则在换行符后添加缩进 */
     private static func reindent(input: String, indent: String,
         first: Bool, last: Bool): String {
-        let length = input.size
         let inputRunes = input.toRuneArray()
+        let length = inputRunes.size
         let stringBuild = StringBuilder(indent.size + length)
 
-        if (first) {
+        if (first == true) {
             stringBuild.append(indent)
         }
 
@@ -1940,8 +1784,8 @@ protected class StringSegment <: Segment {
      * 如果在字符串中找到了换行符（\n），就返回该位置；如果没有找到空白字符，则返回 -1*/
     private static func blankPos(text: String, 
         leading: Bool, first: Bool): Int64 {
-        let len: Int64 = text.size
         let textRunes = text.toRuneArray()
+        let len = textRunes.size
 
         var ii: Int64 = if (leading) { 0 }
                         else { len - 1 }
@@ -2010,8 +1854,16 @@ extend StringBuilder {
     } 
 }
 
-extend String {
-    public func equalsIgnoreAsciiCase(str: String): Bool {
-        return this == str
+
+extend DataModel {
+    public func toString(): String {
+        return match (this) {
+            case str:  DataModelString => str.getValue()
+            case i64:  DataModelInt    => i64.getValue().toString()
+            case f64:  DataModelFloat  => f64.getValue().toString()
+            case bool: DataModelBool   => bool.getValue().toString()
+            case none: DataModelNull   => ""
+            case _ => throw MustacheException("Unsupported type")
+        }
     }
 }

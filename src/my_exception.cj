@@ -72,6 +72,15 @@ public class UnInplementException <: Exception {
     }    
 }
 
+public class ShouldNotReachHereException <: Exception {
+    public init() {
+        super("ShouldNotReachHereException")
+    }
+    public override func getClassName(): String {
+        "ShouldNotReachHereException"
+    }
+}
+
 public class RuntimeException <: Exception {
     let e: Exception
 
@@ -83,14 +92,3 @@ public class RuntimeException <: Exception {
         "RuntimeException"
     }
 }
-
-public func isRuntimeException(e: Exception): Bool {
-    if (isSubType(e, "NoneValueException") || 
-        isSubType(e, "IndexOutOfBoundsException") || 
-        isSubType(e, "ArithmeticException") || 
-        isSubType(e, "UnsupportedException") || 
-        isSubType(e, "IllegalStateException") ||
-        isSubType(e, "IllegalFormatException") || 
-        isSubType(e, "NegativeArraySizeException")) { return true}
-    return false
-} 

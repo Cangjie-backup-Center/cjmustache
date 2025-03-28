@@ -76,8 +76,8 @@ public class Lookup7bitEscaper <: Escaper {
      */
     public static func createTable(
         mappings: Array<Array<String>>): ?Array<?String> {
-        let table = Array<?String>(128, 
-            {_ => Option<String>.None})
+        let table = Array<?String>(128, {_ => Option<String>.None})
+
         for (entry in mappings) {
             let key: String = entry[0]
 
@@ -88,6 +88,7 @@ public class Lookup7bitEscaper <: Escaper {
             if (key.toRuneArray()[0] > r'\u{127}') {  /* 不属于ASCLL字符集 */
                 return Option<Array<?String>>.None
             }
+
             table[Int64(key[0])] = entry[1]
         }
 
@@ -112,10 +113,11 @@ public class Lookup7bitEscaper <: Escaper {
     public override func escape(
         stringBuild: ?StringBuilder,
             out: ?OutputStream, raw: String): Unit {
-        let end = raw.size
         let rawRunes = raw.toRuneArray()
+        let end = rawRunes.size
         var start = 0
         var i = 0
+        
         while (i < end) {
             var c = rawRunes[i]
             var found = escapeChar(lookupTable, c)

@@ -1,9 +1,9 @@
 package cjmustache
 
 import serialization.serialization.*
+import std.collection.concurrent.*
 import std.io.*
 import std.collection.*
-import std.reflect.*
 import std.convert.*
 
 public class Template {
@@ -13,7 +13,7 @@ public class Template {
     protected static let LAST_NAME: String  = "-last"
     protected static let INDEX_NAME: String = "-index"
 
-    protected let _fcache: HashMap<String, VariableFetcher>
+    protected let _fcache: ConcurrentHashMap<String, VariableFetcher>
 
     protected Template(
         let _segs: Array<Segment>, 
@@ -21,13 +21,15 @@ public class Template {
         _fcache = _compiler._collector.createFetcherCache()
     } 
     
-    /** A sentinel object that can be returned by a {@link Mustache.Collector} to indicate that a
-      * variable does not exist in a particular context. */
-    // public static let NO_FETCHER_FOUND = TypeInfo.of(("<no fetcher found>" as Any).getOrThrow())  
-    public static let NO_FETCHER_FOUND = 
-        ("<no fetcher found>" as Any).getOrThrow()   
+    // 用来表示没有对应的 fetcher 
+    public static let NO_FETCHER_FOUND = "<no fetcher found>"
 
-    public func execute(context: ?Any): String {
+
+    public func execute(out: OutputStream, context: DataModel): Unit {
+        execute(context, out)
+    }
+
+    public func execute(context: DataModel): String {
         let byteArrayStream = ByteArrayStream()
         let out = BufferedOutputStream(byteArrayStream)
         execute(context, out)
@@ -35,7 +37,7 @@ public class Template {
         return String.fromUtf8(byteArrayStream.readToEnd())
     }
 
-    public func execute(context: ?Any, out: OutputStream): Unit {
+    public func execute(context: DataModel, out: OutputStream): Unit {
         executeSegs(Context(context, None, 0, false, false), out)
     }
 
@@ -45,7 +47,7 @@ public class Template {
      * @throws MustacheException : 如果在执行或写入模板时发生错误
      */
     public func execute(
-        context: ?Any, parentContext: ?Any, out: OutputStream) {
+        context: DataModel, parentContext: DataModel, out: OutputStream) {
         let ctx = Context(parentContext, None, 0, false, false)
         executeSegs(Context(context, ctx, 0, false, false), out)
     }
@@ -57,11 +59,12 @@ public class Template {
         }
     }
 
-    /** 我们在这里要做的是重建这个部分模板，但要缩进
+    /** 
+      * 我们在这里要做的是重建这个部分模板，但要缩进
       * 如果标识没有改变任何东西，我们将返回原始模板
       */
     protected func indent(indent: String): Template {
-        if (indent.equalsIgnoreAsciiCase("")) {
+        if (indent == "") {
             return this
         }
 
@@ -115,143 +118,121 @@ public class Template {
       */
     protected func getValue(
         ctx: Context, name: String, line: Int64,
-            missingIsNull: Bool): ?Any {
+            missingIsNull: Bool): DataModel {
         /* 处理我们的特殊变量 */
-        if (name.equalsIgnoreAsciiCase(FIRST_NAME)) {
-            return ctx.onFirst
-        } else if (name.equalsIgnoreAsciiCase(LAST_NAME)) {
-            return ctx.onLast
-        } else if (name.equalsIgnoreAsciiCase(INDEX_NAME)) {
-            return ctx.index
+        if (name == FIRST_NAME) {
+            return ctx.onFirst.serialize()
+        } else if (name == LAST_NAME) {
+            return ctx.onLast.serialize()
+        } else if (name == INDEX_NAME) {
+            return ctx.index.serialize()
         }
 
         /* 如果我们处于标准模式，请将自己限制为简单的直接解析
          *（没有复合键，在父上下文中没有解析值） */
         if (_compiler._standardsMode) {
-            if (let Some(value) <- 
-                getValueIn(ctx.data, name, line)) {
-                    return checkForMissing(
-                        name, line, missingIsNull, value)
+            let dm = getValueIn(ctx.data, name, line)
+            if (!(dm is DataModelNull)) {
+                return checkForMissing(name, line, missingIsNull, dm)
             }
-            return Template.NO_FETCHER_FOUND
+            return Template.NO_FETCHER_FOUND.serialize()
         }
 
         /* 首先在父上下文中搜索键（即使键是复合键，我们也会首先尝试找到它的“整体”
          * ，只有当失败时，我们才会分部分解析它） */
-        var currrntCtx: ?Context = ctx
-        while (let Some(extractedCtx) <- currrntCtx) {
-            if (let Some(value) <- 
-                getValueIn(extractedCtx.data, name, line)) {
+        var curCtx: ?Context = ctx
+        while (let Some(extCtx) <- curCtx) {
+            let value = getValueIn(extCtx.data, name, line)
+            if (!(value is DataModelNull)) {
                 if (isNO_FETCHER_FOUND(value)) {
-                        currrntCtx = extractedCtx.parent
-                        continue 
-                }
-
-                if (value is Option<Any>) {
-                    if (let Some(extractedValue) <- 
-                        (value as Option<Any>).getOrThrow()) {
-                            return extractedValue
-                    } else {
-                        return None
-                    }
+                    curCtx = extCtx.parent
+                    continue
                 }
 
                 return value
             } else {
-                return None
+                return DataModelNull()
             }
-            
-            currrntCtx = extractedCtx.parent
+
+            curCtx = extCtx.parent
         }
 
         /* 如果我们到达这里，我们在这个或我们的父环境中什么也没发现...... */
 
         /* 如果我们有一个复合键，分解该值并逐步解析 */
-        if (!name.equalsIgnoreAsciiCase(DOT_NAME) && 
+        if (!(name ==DOT_NAME) && 
             name.indexOf(DOT_NAME) != None) {
                 return getCompoundValue(
                     ctx, name, line, missingIsNull)
         } else {
             return checkForMissing(
-                name, line, missingIsNull, NO_FETCHER_FOUND)
+                name, line, missingIsNull, NO_FETCHER_FOUND.serialize())
         }
     }
 
-        /**
-      * 将复合键{@code name}分解为组件，并解析它们引用的值。
-      */
+    /*
+     * 将复合键{@code name}分解为组件，并解析它们引用的值。
+     */
     protected func getCompoundValue(
             ctx: Context, name: String, 
-            line: Int64, missingIsNull: Bool): ?Any {
+            line: Int64, missingIsNull: Bool): DataModel {
         let comps: Array<String> = name.split(".")
         let size = comps.size
 
         /* 我们希望允许复合键的第一个组件位于父上下文中，
          * 但一旦我们选择了子组件，它们只能在表示该组件的对象中解析 */
-        var extractedValue: Any
-        if (let Some(value) <- 
-            getValue(ctx, comps[0], line, missingIsNull)) {
-                extractedValue = value
-        } else {
-            return None
-        }
+        var value = getValue(ctx, comps[0], line, missingIsNull)
 
         for (ii in 1..size) {
-            if (isNO_FETCHER_FOUND(extractedValue)) {
+            if (isNO_FETCHER_FOUND(value)) {
                 if (!missingIsNull) {
                     throw ExceptionContext(
                         "Missing context for compound variable '" + 
                         name +"' on line " + line.toString() + ". '" +
                         comps[ii - 1] + "' was not found.", name, line)
                 }
-                return None
+                return DataModelNull()
+            } else if (value is DataModelNull) {
+                return value
             }
 
-            if (let Some(value) <- 
-                getValueIn(extractedValue, comps[ii], line)) {
-                    extractedValue = value
-            } else {
-                return None
-            }
+            value = getValueIn(value, comps[ii], line)
         }
         
         return checkForMissing(
-            name, line, missingIsNull, extractedValue)
+            name, line, missingIsNull, value)
     }
 
     /**
       * 返回指定变量的值，注意它将用作节的内容。
       */
     protected func getSectionValue(
-        ctx: Context, name: String, line: Int64): ?Any {
-        if (let Some(extractedValue) <- 
-            getValue(ctx, name, line, !_compiler._strictSections)) {
-                return extractedValue
-        } else {
-            let emptyArrList = ArrayList<Any>()
-            return (emptyArrList as Any)
-        }
+        ctx: Context, name: String, line: Int64): DataModel {
+            let value = getValue(ctx, name, line, !_compiler._strictSections)
+            return if (value is DataModelNull) {
+                ArrayList<String>().serialize()
+            } else {
+                value
+            }
     }
+
 
     /**
       * 返回指定变量的值，如果变量解析为null，则返回配置的默认值。请参阅{@link#getValue}。
       */
     protected func getValueOrDefault(
-        ctx: Context, name: String, line: Int64): ?Any {
-        if (let Some(extractedValue) <- 
-            getValue(ctx, name, line, _compiler._missingIsNull)) {
-                return extractedValue
-        } else {
-            if (let Some(extractedValue) <- 
-                _compiler.computerNullValue(name)) {
-                    return extractedValue as Any
+        ctx: Context, name: String, line: Int64): DataModel {
+            let value = getValue(ctx, name, line, _compiler._missingIsNull)
+
+            return if (value is DataModelNull) {
+                _compiler.computerNullValue(name)
+            } else {
+                value
             }
-            return None
-        }
     }
 
     protected func getValueIn(
-        data: ?Any, name: String, line: Int64): ?Any {
+        data: DataModel, name: String, line: Int64): DataModel {
         /*如果我们得到或者“this”返回整个上下文；我们在null检查之前这样做，
         因为上下文为null可能是有效的（例如，如果我们迭代一个包含null的列表  */
 
@@ -259,31 +240,25 @@ public class Template {
             return data 
         }
 
-        if (data.isNone()) {
+        if (data is DataModelNull) {
             throw NoneValueException(
                 "Null context for variable '" + 
                 name + "' on line " + line.toString())
         }
 
-        let extractedData = data.getOrThrow()
-
-        let key = Key(data.getOrThrow(), name)
+        let key = Key(data, name)
         var fetcher = _fcache.get(key.toString())
-        
-        if (!fetcher.isNone()) {
+
+        if (let Some(extractedFetcher) <- fetcher) {
             try {
-                if (let Some(extractedValue) <- 
-                fetcher.getOrThrow().get(extractedData, name)) {
-                    return (extractedValue as Any).getOrThrow()
-                }
-                return None
+                return extractedFetcher.get(data, name)
             } catch (e: Exception) {
                 fetcher = _compiler._collector.
-                createFetcher(extractedData, name)
+                    createFetcher(data, name)
             }
         } else {
             fetcher = _compiler._collector.
-            createFetcher(extractedData, name)
+                createFetcher(data, name)
         }
 
         /* 如果我们无法创建一个fetcher，请使用NOT_FOUND_fetcher，
@@ -293,19 +268,19 @@ public class Template {
             fetcher = NOT_FOUND_FETCHER
         }
 
-        let value = (fetcher.getOrThrow()).
-            get(extractedData, name)
+        let value = (fetcher.getOrThrow()).get(data, name)
         _fcache.put(key.toString(), fetcher.getOrThrow())
+
         return value
     }
 
 
     protected func checkForMissing(
         name: String, line: Int64, missingIsNull: Bool,
-            value: Any): ?Any {
+            value: DataModel): DataModel {
         if (isNO_FETCHER_FOUND(value)) {
             if (missingIsNull) { 
-                return None 
+                return DataModelNull()
             }
             throw ExceptionContext(
                 "No method or field with name '" + 
@@ -318,8 +293,8 @@ public class Template {
     }
 
     protected static func isThisName(name: String): Bool {
-        DOT_NAME.equalsIgnoreAsciiCase(name) || 
-        THIS_NAME.equalsIgnoreAsciiCase(name)
+        DOT_NAME == name || 
+        THIS_NAME == name
     }
 
     protected static let NOT_FOUND_FETCHER =
@@ -329,33 +304,33 @@ public class Template {
 }
 
 public class NoneVariableFetcher <: VariableFetcher {
-    public func get(_: Any, _: String): ?Any {
-        return (Template.NO_FETCHER_FOUND as Any).getOrThrow()
+    public func get(_: DataModel, _: String): DataModel {
+        return Template.NO_FETCHER_FOUND.serialize()
     }
 }
 
 
 protected class Context {
     public Context(
-        public let data: ?Any,
+        public let data: DataModel,
         public let parent: ?Context,
         public let index: Int64,
         public let onFirst: Bool,
         public let onLast: Bool) {}
 
     /* 创建一个新的 Context 对象，并初始化其属性 */
-    public func next(data: ?Any): Context {
+    public func next(data: DataModel): Context {
         return Context(data, this, index, onFirst, onLast)
     }
 
     public func next(
-        data: ?Any, index: Int64, 
+        data: DataModel, index: Int64, 
         onFirst: Bool, onLast: Bool): Context {
         return Context(data, this, index, onFirst, onLast)
     }
 }
 
-/** A template is broken into segments. */
+/** 一个template模版会被解析为多个Segment段对象 */
 protected abstract class Segment <: Serializable<Segment> {
     protected open func execute(
         tpml: Template, ctx: Context, out: OutputStream): Unit
@@ -406,6 +381,9 @@ protected abstract class Segment <: Serializable<Segment> {
         }
     } 
 
+    /*
+     * 由子对象去选择实现，如果不实现就使用则抛出异常 @throws UnInplementException 
+     */ 
     open public func toString(): String {
         throw UnInplementException()
     }
@@ -418,35 +396,33 @@ protected abstract class Segment <: Serializable<Segment> {
 }
 
 protected class Key {
-    var cclassType: TypeInfo
-
     public Key(
-        let cclass: Any,
-        let name: String) {
-            try {
-                cclassType = TypeInfo.of(cclass)
-            } catch (ie: InfoNotFoundException) {
-                if (name.equalsIgnoreAsciiCase("mapkey") ||
-                    name.equalsIgnoreAsciiCase("mapvalue")) {
-                    cclassType = TypeInfo.of(TupleClass())
-                } else {
-                    throw ie
-                }
-            }
-        }
+        let dm: DataModel, let name: String) {  }
     
     public func hashCode(): Int64 {
-        TypeInfo.of(cclass).hashCode() * 31 + name.hashCode()
+        return getDataModelType().hashCode() + name.hashCode()
     }
 
-    public func equals(other: Any): Bool {
-        return cclassType.name.
-            equalsIgnoreAsciiCase((other as Key).
-                getOrThrow().cclassType.name)
+    public func equals(other: Key): Bool {
+        return getDataModelType() == other.getDataModelType() && 
+                name == other.name
     }
 
     public func toString(): String {
-        cclassType.name + ":" + name
+        getDataModelType() + ":" + name
+    }
+
+    public func getDataModelType(): String {
+        return match (dm) {
+            case dm: DataModelStruct => "DataModelStruct"
+            case dm: DataModelSeq    => "DataModelSeq"
+            case dm: DataModelInt    => "DataModelInt"
+            case dm: DataModelFloat  => "DataModelFloat"
+            case dm: DataModelString => "DataModelString"  
+            case dm: DataModelBool   => "DataModelBool"
+            case dm: DataModelNull   => "DataModelNull"
+            case _ => throw Exception("Irregular data types or data structures")
+        }
     }
 }
 
@@ -463,7 +439,7 @@ public class TemplateFragment <: Fragment {
     }
 
     public override func execute(
-            context: ?Any, out: OutputStream): Unit {
+            context: DataModel, out: OutputStream): Unit {
         execute(currentCtx.next(context), out)
     }
 
@@ -472,11 +448,11 @@ public class TemplateFragment <: Fragment {
         tmpl.executeSegs(currentCtx, out)
     }
 
-    public override func context(): ?Any {
+    public override func context(): DataModel {
         return currentCtx.data
     }
 
-    public override func context(n: Int64): ?Any {
+    public override func context(n: Int64): DataModel {
         return context(currentCtx, n)
     } 
 
@@ -488,12 +464,12 @@ public class TemplateFragment <: Fragment {
         return into
     }
 
-    private func context(ctx: ?Context, n: Int64): Any {
+    private func context(ctx: ?Context, n: Int64): DataModel {
         var rctx = ctx.getOrThrow()
-        if (n == 0) {
-            return rctx.data
+        return if (n == 0) {
+            rctx.data
         } else {
-            return context(rctx.parent, n-1)
+            context(rctx.parent, n-1)
         }
     }
 
@@ -516,7 +492,7 @@ public abstract class Fragment {
 
     /**使用提供的上下文执行此片段；将其结果写入{@code out}。这个
     * 提供的上下文将嵌套在片段的绑定上下文中*/
-    public func execute(context: ?Any, out: OutputStream): Unit
+    public func execute(context: DataModel, out: OutputStream): Unit
 
     /**使用此片段的绑定上下文执行{@code tmpl}。这允许lambda
     * 将其片段解析为动态加载的模板，然后使用以下命令运行该模板
@@ -537,7 +513,7 @@ public abstract class Fragment {
 
     /**使用提供的上下文执行此片段；以字符串形式返回其结果
     * 提供的上下文将嵌套在片段的绑定上下文中*/
-    public func execute(context: ?Any): String {
+    public func execute(context: DataModel): String {
         let byteArrayStream = ByteArrayStream()
         let bufferedOutputStream = BufferedOutputStream(byteArrayStream)
         execute(context, bufferedOutputStream)
@@ -549,14 +525,14 @@ public abstract class Fragment {
     * 取决于传递给顶级模板的数据的结构。你知道在哪里
     * 您的lambdas已被执行，因此您知道按顺序将上下文转换为哪种类型
     * 检查它（无论是{@code Map}还是POJO或其他东西）*/
-    public func context(): ?Any 
+    public func context(): DataModel
 
     /**像{@link#contexts（）}一样，btu返回第{@coden}个父上下文对象
     * 返回与{@link#context（）}相同的值，{@code 1}返回父上下文，
     * {@code 2}返回父对象，依此类推。请注意，如果你要求父对象
     * 不存在，将抛出异常。您应该只在以下情况下使用此方法
     * 知道你的lambda是在具有特定沿袭的上下文中一致运行的*/
-    public func context(n: Int64): ?Any
+    public func context(n: Int64): DataModel
 
 
     /**分解此模板，并返回<em>近似值</em>
@@ -589,6 +565,3 @@ public abstract class Fragment {
     public func decomplie(into: StringBuilder): StringBuilder
 }
 
-public class TupleClass {
-    let tuple = ("foo", "bar")
-}

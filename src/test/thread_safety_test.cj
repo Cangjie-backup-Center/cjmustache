@@ -2,13 +2,13 @@ package cjmustache.test
 
 import cjmustache.*
 
+import serialization.serialization.*
 import std.unittest.*
 import std.unittest.testmacro.*
 import std.io.*
 import std.collection.*
 import std.collection.concurrent.*
 import std.convert.*
-import std.reflect.*
 import std.sync.*
 import std.time.*
 
@@ -40,7 +40,7 @@ public class ThreadSafetyTest {
                 try {
                     synchronized(mon) {
                         mon.wait()
-                        let value = template.execute(ConcurrentHashMap<String, String>())
+                        let value = template.execute(HashMap<String, String>().serialize())
                         if (!value.contains("Template A content\nTemplate B content")) {
                             @Assert(false)
                         }
@@ -68,12 +68,12 @@ public class ThreadSafetyTest {
     @TestCase
     public func testPartialThreadSafe(): Unit {
         let loadCount = AtomicInt64(0)
-        let loader = TemplateLoader5(loadCount)
+        let loader = AtomicTemplateLoader(loadCount)
         let template = Mustache.compiler().withLoader(loader)
         .compile("{{stuff}}\n\t{{> partial }}")
         let q = NonBlockingQueue<Exception>()
 
-        let m = HashMap<String, Any>()
+        let m = HashMap<String, String>()
         m.put("stuff", "Foo")
         let threads = ArrayList<Future<Unit>>()
 
@@ -81,7 +81,7 @@ public class ThreadSafetyTest {
             let fut = spawn {
                 try {
                     sleep(Duration.millisecond)
-                    let skipStr = template.execute(m)
+                    let skipStr = template.execute(m.serialize())
                 } catch (e: Exception) {
                     let skipBool = q.enqueue(e)
                 }
@@ -98,13 +98,12 @@ public class ThreadSafetyTest {
     }
 }
 
-
 public class CountLoader <: TemplateLoader {
     let counter = AtomicInt64(0)
 
     public func getTemplate(name: String): InputStream {
         counter.fetchAdd(1)
-        if (!"templateB".equalsIgnoreAsciiCase(name)) {
+        if (!("templateB" == name)) {
             throw IllegalArgumentException()
         }
         let byteArrayStream = ByteArrayStream()
@@ -117,13 +116,13 @@ public class CountLoader <: TemplateLoader {
     }
 }
 
-public class TemplateLoader5 <: TemplateLoader {
-    public TemplateLoader5(let loadCount: AtomicInt64) {}
+public class AtomicTemplateLoader <: TemplateLoader {
+    public AtomicTemplateLoader(let loadCount: AtomicInt64) {}
 
     public override func getTemplate(name: String): InputStream {
         let byteArrayStream = ByteArrayStream()
         byteArrayStream.write("Hello".toArray())
-        if ("partial".equalsIgnoreAsciiCase(name)) {
+        if ("partial" == name) {
             loadCount.fetchAdd(1)
             sleep(Duration.second)
             return BufferedInputStream(byteArrayStream)
