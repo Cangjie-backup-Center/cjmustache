@@ -6,11 +6,14 @@ import std.unittest.*
 import std.unittest.testmacro.*
 import std.fs.*
 import std.collection.*
+import serialization.serialization.*
+import encoding.json.*
 
 
 @Test
 public class CompileTest {
-    @TestCase func compileTEst() {
+    @TestCase 
+    func compileHtmlTEst() {
         try {
             let compile = Mustache.compiler().compile(
                 convertEscapes(String.fromUtf8(
@@ -19,8 +22,21 @@ public class CompileTest {
         } catch (e: Exception) {
             @Expect(false)
         }
-
     }
+
+    @TestCase 
+    func compileXmlTEst() {
+        try {
+            let compile = Mustache.compiler().compile(
+                convertEscapes(String.fromUtf8(
+                    File.readFrom(Path("src/test/templates/localOrderMustacheModel_template.xml")))))
+            compile.execute(DataModel.fromJson(JsonValue.fromStr(String.fromUtf8(File.readFrom(Path("src/test/data/test_data.txt"))))))
+            @Expect(true)
+        } catch (e: Exception) {
+            @Expect(false)
+        }
+    }
+
 
     private let ESCAPE_MAP = HashMap<String, String>([
         ("\\\\", "\\"),

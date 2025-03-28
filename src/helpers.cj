@@ -20,12 +20,10 @@ public func appendOrWrite(
     out: ?OutputStream, raw: String,
         start: Int64, end: Int64): Unit {
     if (let Some(extractedStringBuilder) <- sb) {
-        extractedStringBuilder.
-        append(raw[start..end])
+        extractedStringBuilder.append(raw.slice(begin: start, end: end))
     }
     if (let Some(extractedOutputStream) <- out) {
-        extractedOutputStream.
-        write(raw[start..end].toArray())
+        extractedOutputStream.write(raw.slice(begin: start, end: end).toArray())
     }
 }
 

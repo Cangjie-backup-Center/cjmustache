@@ -1674,14 +1674,14 @@ protected class StringSegment <: Segment {
             _trailBlank - lpos
         }
 
-        StringSegment(_text[lpos..], -1, newTrail, _first)
+        StringSegment(_text.slice(begin: lpos), -1, newTrail, _first)
     }
 
     public func trimTrailBlank(): StringSegment {
         return if (_trailBlank == -1) {
             this
         } else {
-            StringSegment(_text[0.._trailBlank], _leadBlank, -1, _first)
+            StringSegment(_text.slice(end: _trailBlank), _leadBlank, -1, _first)
         }
     }
 
@@ -1693,7 +1693,7 @@ protected class StringSegment <: Segment {
         if (_trailBlank == -1 || _trailBlank >= _text.size) {
             return ""
         }
-        return _text[_trailBlank..]
+        return _text.slice(begin: _trailBlank)
     }
 
     public func indent(indent: String, first: Bool, last: Bool): StringSegment {
@@ -1835,13 +1835,13 @@ extend StringBuilder {
     public func insert(index: Int64, r: Rune) {
         let str = this.toString()
         this.reset(capacity: Some(1))
-        this.append(str[0..index] + r.toString() + str[index..])
+        this.append(str.slice(end: index) + r.toString() + str.slice(begin: index))
     }
 
     public func replace(l: Int64, r: Int64, s: String) {
         let str = this.toString()
         this.reset(capacity: Some(1))
-        this.append(str[0..l] + s + str[r..])
+        this.append(str.slice(end: l) + s + str.slice(begin: r))
     }
 }
 
@@ -1855,5 +1855,25 @@ extend DataModel {
             case none: DataModelNull => ""
             case _ => throw MustacheException("Unsupported type")
         }
+    }
+}
+
+extend String {
+    public func slice(begin!: Int64 = -1, end!: Int64 = -1): String {
+        let thisRunes = this.toRuneArray()
+        let runes = if (begin == -1 && end == -1) {
+            thisRunes
+        } else if (begin == -1 && end != -1) {
+            thisRunes[..end]
+        } else if (begin != -1 && end == -1) {
+            thisRunes[begin..]
+        } else {
+            thisRunes[begin..end]
+        }
+        let stringBuilder = StringBuilder()
+        for (r in runes) {
+            stringBuilder.append(r)
+        }
+        return stringBuilder.toString()
     }
 }
