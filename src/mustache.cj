@@ -649,7 +649,7 @@ protected class Parser {
         else if (state == Mustache.MATCHING_END) {
             if (c == delims.end2) {
                 if (text.toString().toRuneArray()[0] == r'=') {
-                    delims.updateDelims(text.toString()[1..text.size-1])
+                    delims.updateDelims(text.toString().slice(begin: 1, end: text.size - 1))
                     text.reset(capacity: Some(1))
                     accum.addFauxSegment()
                 } else {
@@ -1715,14 +1715,14 @@ protected class StringSegment <: Segment {
                             _trailBlank - lpos 
                         }
 
-        StringSegment(_text[lpos..], -1, newTrail, _first)
+        StringSegment(_text.slice(begin: lpos), -1, newTrail, _first)
     } 
     
     public func trimTrailBlank(): StringSegment {
         return if (_trailBlank == -1) { 
             this 
         } else { 
-            StringSegment(_text[0.._trailBlank], _leadBlank, -1, _first)
+            StringSegment(_text.slice(end: _trailBlank), _leadBlank, -1, _first)
         }
     }
 
@@ -1734,7 +1734,7 @@ protected class StringSegment <: Segment {
         if (_trailBlank == -1 || _trailBlank >= _text.size) {
             return ""
         }
-        return _text[_trailBlank..]
+        return _text.slice(begin: _trailBlank)
     }
 
     public func indent(indent: String, 
@@ -1859,26 +1859,45 @@ extend StringBuilder {
     public func insert(index: Int64, r: Rune) {
         let str = this.toString()
         this.reset(capacity: Some(1))
-        this.append(str[0..index] + r.toString() + str[index..])
+        this.append(str.slice(end: index) + r.toString() + str.slice(begin: index))
     }
 
     public func replace(l: Int64, r: Int64, s: String) {
         let str = this.toString()
         this.reset(capacity: Some(1))
-        this.append(str[0..l] + s + str[r..])
-    } 
+        this.append(str.slice(end: l) + s + str.slice(begin: r))
+    }
 }
-
 
 extend DataModel {
     public func toString(): String {
         return match (this) {
-            case str:  DataModelString => str.getValue()
-            case i64:  DataModelInt    => i64.getValue().toString()
-            case f64:  DataModelFloat  => f64.getValue().toString()
-            case bool: DataModelBool   => bool.getValue().toString()
-            case none: DataModelNull   => ""
+            case str: DataModelString => str.getValue()
+            case i64: DataModelInt => i64.getValue().toString()
+            case f64: DataModelFloat => f64.getValue().toString()
+            case bool: DataModelBool => bool.getValue().toString()
+            case none: DataModelNull => ""
             case _ => throw MustacheException("Unsupported type")
         }
+    }
+}
+
+extend String {
+    public func slice(begin!: Int64 = -1, end!: Int64 = -1): String {
+        let thisRunes = this.toRuneArray()
+        let runes = if (begin == -1 && end == -1) {
+            thisRunes
+        } else if (begin == -1 && end != -1) {
+            thisRunes[..end]
+        } else if (begin != -1 && end == -1) {
+            thisRunes[begin..]
+        } else {
+            thisRunes[begin..end]
+        }
+        let stringBuilder = StringBuilder()
+        for (r in runes) {
+            stringBuilder.append(r)
+        }
+        return stringBuilder.toString()
     }
 }
