@@ -44,7 +44,7 @@ public class SharedTest {
     }
 
     @TestCase
-    public func testPrimitiveArrayVariable () {  // NoneValueException
+    public func testPrimitiveArrayVariable () {  
         @Expect(test("1234", "{{#foo}}{{this}}{{/foo}}",
             M_SL_I([("foo", L_I([1, 2, 3, 4]))]).serialize()))
     }
@@ -691,6 +691,21 @@ public class SharedTest {
         let ctx = M_SS([("variable", "value")]).serialize()
         @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", ctx))
         @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", ctx))
+    }
+
+    @TestCase
+    public func testChinese() {
+        @Expect(test("你好, 世界!", "你好, {{foo}}!", 
+            M_SS([("foo", "世界")]).serialize()))
+
+        @Expect(test("你好, 世界!", "你好, {{中}}!", 
+            M_SS([("中", "世界")]).serialize()))
+
+        @Expect(test("你好, 世界!", "你好, {{中foo中}}!", 
+            M_SS([("中foo中", "世界")]).serialize()))
+
+        @Expect(test("你好, 世界!", "你好, {{中中foo……下%#上中}}!", 
+            M_SS([("中中foo……下%#上中", "世界")]).serialize()))
     }
 
     protected func test(compiler: Compiler, expected: ?String, template: String, ctx: DataModel): Bool {

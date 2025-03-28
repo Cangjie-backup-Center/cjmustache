@@ -561,7 +561,8 @@ protected class Parser {
     protected let delims: Delims
     protected let text = StringBuilder()
 
-    protected var sourse: ?InputStream = None
+    protected var sourceRunes: ?Array<Rune> = None
+    protected var index = 0
     protected var accum: Accumlator
 
     protected var state: Int64 = Mustache.TEXT
@@ -575,17 +576,15 @@ protected class Parser {
     }
 
     public func parse(source: InputStream): Accumlator {
-        this.sourse = source
+        getRunesFromInputStream(source)
 
-        var v: Int64 = nextChar()
-        while (v != 0) {
+        while (let Some(r) <- nextRune()) {
             column++
-            parseRune(Rune(v))
-            if (Rune(v) == r'\n') {
+            parseRune(r)
+            if (r == r'\n') {
                 column = 0
                 line++
             }
-            v = nextChar()
         }
 
         if (state == Mustache.TAG) {
@@ -656,14 +655,17 @@ protected class Parser {
                 } else {
                     if (delims.isStaches() && 
                         text.toString().toRuneArray()[0] == delims.start1) {
-                        var end3: Int64 = nextChar()
 
-                        if (Rune(end3) != r'}') {
-                            let got: String = if (end3 == 0) { "" }
-                            else { String(Rune(end3)) }
+                        if (let Some(end3) <- nextRune()) {
+                            if (end3 != r'}') {
+                                throw MustacheParseException(
+                                    "Invalid triple-mustache tag: {{" +
+                                    text.toString() + "}}" + String(end3), line)
+                            }
+                        } else {
                             throw MustacheParseException(
                                 "Invalid triple-mustache tag: {{" +
-                                text.toString() + "}}" + got, line)
+                                text.toString() + "}}", line)
                         }
 
                         text.replace(0, 1, "&")
@@ -679,15 +681,22 @@ protected class Parser {
         }
     }
 
-    protected func nextChar(): Int64 { 
-        try {
-            let arrByte = Array<Byte>(1, repeat: 0)
-            let extractedSourse = sourse.getOrThrow()
-            extractedSourse.read(arrByte)
-            return Int64(arrByte[0])  
-        } catch (ioe: IOException) {
-            throw MustacheException(ioe)
+    protected func nextRune(): ?Rune {
+        let next = sourceRunes.getOrThrow().get(index)
+        index++
+        return next
+    }
+
+    private func getRunesFromInputStream(sourse: InputStream): Unit {
+        let bufferedInputStream = BufferedInputStream(sourse)
+        let byteList = ArrayList<Byte>()
+        let byteArr = Array<Byte>(1024, repeat: 0)
+        var readLen = bufferedInputStream.read(byteArr)
+        while (readLen > 0) {
+            byteList.add(all: byteArr[0..readLen])
+            readLen = bufferedInputStream.read(byteArr)
         }
+        sourceRunes = String.fromUtf8(byteList.toArray()).toRuneArray()
     }
 }
 
@@ -719,39 +728,44 @@ open protected class Accumlator {
         accum: StringBuilder, tagLine: Int64): Accumlator {
         let outer: Accumlator = this
         let tag: String = accum.toString().trim()
-        let tag1: String = tag[1..].trim()
+        let nextTagRunes = tag.toRuneArray()[1..]
+        let nextTagsBuilder = StringBuilder() 
+        for (r in nextTagRunes) {
+            nextTagsBuilder.append(r)
+        }
+        let nextTags = nextTagsBuilder.toString().trim()
         accum.reset(capacity: Some(1))
 
         match (tag.toRuneArray()[0]) {
             case r'#' => requireNoNewlines(tag, tagLine)
                     return SectionSegmentAccumlator(
-                        _comp, false, outer, tag1, tagLine)
+                        _comp, false, outer, nextTags, tagLine)
             
             case r'>' => _segs.add(
-                    IncludedTemplateSegment(_comp, tag1, tagLine))
+                    IncludedTemplateSegment(_comp, nextTags, tagLine))
                     return this
 
             case r'<' => requireNoNewlines(tag, tagLine)
                     return ParentTemplateSegmentAccumlator(
-                        _comp, false, outer, tag1, tagLine)
+                        _comp, false, outer, nextTags, tagLine)
 
             case r'$' => requireNoNewlines(tag, tagLine)
                     return BlockSegmentAccumlator(
-                        _comp, false, outer, tag1, tagLine)
+                        _comp, false, outer, nextTags, tagLine)
 
             case r'^' => requireNoNewlines(tag, tagLine)
                     return InvertedSegmentAccumlator(
-                        _comp, false, outer, tag1, tagLine)
+                        _comp, false, outer, nextTags, tagLine)
 
             case r'/' => requireNoNewlines(tag, tagLine)
-                    return addCloseSectionSegment(tag1, tagLine)
+                    return addCloseSectionSegment(nextTags, tagLine)
 
             case r'!' => _segs.add(FauxSegment())
                     return this
 
             case r'&' => requireNoNewlines(tag, tagLine)
                     _segs.add(VariableSegment(
-                        tag1, tagLine, _comp._formatter, Escapers.NONE))
+                        nextTags, tagLine, _comp._formatter, Escapers.NONE))
                     return this
 
             case _ => requireNoNewlines(tag, tagLine)
