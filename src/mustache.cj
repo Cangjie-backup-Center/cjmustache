@@ -534,7 +534,8 @@ protected class Parser {
     protected let delims: Delims
     protected let text = StringBuilder()
 
-    protected var sourse: ?InputStream = None
+    protected var sourceRunes: ?Array<Rune> = None
+    protected var index = 0
     protected var accum: Accumlator
 
     protected var state: Int64 = Mustache.TEXT
@@ -548,17 +549,15 @@ protected class Parser {
     }
 
     public func parse(source: InputStream): Accumlator {
-        this.sourse = source
+        getRunesFromInputStream(source)
 
-        var v: Int64 = nextChar()
-        while (v != 0) {
+        while (let Some(r) <- nextRune()) {
             column++
-            parseRune(Rune(v))
-            if (Rune(v) == r'\n') {
+            parseRune(r)
+            if (r == r'\n') {
                 column = 0
                 line++
             }
-            v = nextChar()
         }
 
         if (state == Mustache.TAG) {
@@ -586,7 +585,8 @@ protected class Parser {
             } else {
                 text.append(c)
             }
-        } else if (state == Mustache.MATCHING_START) {
+        }
+        else if (state == Mustache.MATCHING_START) {
             if (c == delims.start2) {
                 accum.addTextSegment(text)
                 state = Mustache.TAG
@@ -595,13 +595,15 @@ protected class Parser {
                 state = Mustache.TEXT
                 parseRune(c)
             }
-        } else if (state == Mustache.TAG) {
+        }
+        else if (state == Mustache.TAG) {
             if (c == delims.end1) {
                 state = Mustache.MATCHING_END
                 if (delims.end2 == Mustache.NO_CHAR) {
                     parseRune(Mustache.NO_CHAR)
                 }
-            } else if (c == delims.start1 && text.size > 0 && text.toString().toRuneArray()[0] != r'!') {
+            } else if (c == delims.start1 && text.size > 0 &&
+                        text.toString().toRuneArray()[0] != r'!') {
                 Mustache.restoreStartTag(text, delims)
                 accum.addTextSegment(text)
                 tagStartColumn = column
@@ -612,29 +614,31 @@ protected class Parser {
                 } else {
                     state = Mustache.MATCHING_START
                 }
+
             } else {
                 text.append(c)
             }
-        } else if (state == Mustache.MATCHING_END) {
+        }
+        else if (state == Mustache.MATCHING_END) {
             if (c == delims.end2) {
                 if (text.toString().toRuneArray()[0] == r'=') {
-                    delims.updateDelims(text.toString()[1..text.size - 1])
+                    delims.updateDelims(text.toString()[1..text.size-1])
                     text.reset(capacity: Some(1))
                     accum.addFauxSegment()
                 } else {
-                    if (delims.isStaches() && text.toString().toRuneArray()[0] == delims.start1) {
-                        var end3: Int64 = nextChar()
+                    if (delims.isStaches() && 
+                        text.toString().toRuneArray()[0] == delims.start1) {
 
-                        if (Rune(end3) != r'}') {
-                            let got: String = if (end3 == 0) {
-                                ""
-                            } else {
-                                String(Rune(end3))
+                        if (let Some(end3) <- nextRune()) {
+                            if (end3 != r'}') {
+                                throw MustacheParseException(
+                                    "Invalid triple-mustache tag: {{" +
+                                    text.toString() + "}}" + String(end3), line)
                             }
+                        } else {
                             throw MustacheParseException(
-                                "Invalid triple-mustache tag: {{" + text.toString() + "}}" + got,
-                                line
-                            )
+                                "Invalid triple-mustache tag: {{" +
+                                text.toString() + "}}", line)
                         }
 
                         text.replace(0, 1, "&")
@@ -650,15 +654,22 @@ protected class Parser {
         }
     }
 
-    protected func nextChar(): Int64 {
-        try {
-            let arrByte = Array<Byte>(1, item: 0)
-            let extractedSourse = sourse.getOrThrow()
-            extractedSourse.read(arrByte)
-            return Int64(arrByte[0])
-        } catch (ioe: IOException) {
-            throw MustacheException(ioe)
+    protected func nextRune(): ?Rune {
+        let next = sourceRunes.getOrThrow().get(index)
+        index++
+        return next
+    }
+
+    private func getRunesFromInputStream(sourse: InputStream): Unit {
+        let bufferedInputStream = BufferedInputStream(sourse)
+        let byteList = ArrayList<Byte>()
+        let byteArr = Array<Byte>(1024, item: 0)
+        var readLen = bufferedInputStream.read(byteArr)
+        while (readLen > 0) {
+            byteList.appendAll(byteArr[0..readLen])
+            readLen = bufferedInputStream.read(byteArr)
         }
+        sourceRunes = String.fromUtf8(byteList.toArray()).toRuneArray()
     }
 }
 
@@ -666,69 +677,74 @@ protected class Parser {
  * 该类用于解析 Mustache 模板中的标签（例如 {{#section}}、{{> partial}} 等），
  * 并将这些标签转换为对应的模板片段（Segment）
  * 它通过处理模板中的文本和标签来构建最终模板的片段集合，这些片段将在模板渲染时使用 */
-protected open class Accumlator {
+open protected class Accumlator {
     protected let _comp: Compiler
     protected let _topLevel: Bool
-    protected let _segs = ArrayList<Segment>()
+    protected let _segs = ArrayList<Segment>() 
 
     public init(compiler: Compiler, topLevel: Bool) {
-        _comp = compiler /* 传入的 Compiler 对象，用于编译模板时的上下文 */
-        _topLevel = topLevel /* 表示当前累积器是否处于顶级状态。如果是顶级累积器，则在某些情况下对文本片段的处理会有所不同 */
+        _comp = compiler      /* 传入的 Compiler 对象，用于编译模板时的上下文 */
+        _topLevel = topLevel  /* 表示当前累积器是否处于顶级状态。如果是顶级累积器，则在某些情况下对文本片段的处理会有所不同 */
     }
 
     /* 将普通文本添加为模板片段。这个方法会将 StringBuilder 中的内容转化为 StringSegment 对象，存储在 _segs 列表中 */
     public func addTextSegment(text: StringBuilder): Unit {
         if (text.size > 0) {
-            _segs.append(StringSegment(text.toString(), _segs.isEmpty() && _topLevel))
+            _segs.append(StringSegment(text.toString(),
+                        _segs.isEmpty() && _topLevel))
             text.reset(capacity: Some(1))
         }
     }
 
     /* 解析 Mustache 模板中的标签（例如 {{#section}} 或 {{/section}}），并将标签处理为相应的模板片段 */
-    public func addTagSegment(accum: StringBuilder, tagLine: Int64): Accumlator {
+    public func addTagSegment(
+        accum: StringBuilder, tagLine: Int64): Accumlator {
         let outer: Accumlator = this
         let tag: String = accum.toString().trim()
-        let tag1: String = tag[1..].trim()
+        let nextTagRunes = tag.toRuneArray()[1..]
+        let nextTagsBuilder = StringBuilder() 
+        for (r in nextTagRunes) {
+            nextTagsBuilder.append(r)
+        }
+        let nextTags = nextTagsBuilder.toString().trim()
         accum.reset(capacity: Some(1))
 
         match (tag.toRuneArray()[0]) {
-            case r'#' =>
-                requireNoNewlines(tag, tagLine)
-                return SectionSegmentAccumlator(_comp, false, outer, tag1, tagLine)
+            case r'#' => requireNoNewlines(tag, tagLine)
+                    return SectionSegmentAccumlator(
+                        _comp, false, outer, nextTags, tagLine)
+            
+            case r'>' => _segs.append(
+                    IncludedTemplateSegment(_comp, nextTags, tagLine))
+                    return this
 
-            case r'>' =>
-                _segs.append(IncludedTemplateSegment(_comp, tag1, tagLine))
-                return this
+            case r'<' => requireNoNewlines(tag, tagLine)
+                    return ParentTemplateSegmentAccumlator(
+                        _comp, false, outer, nextTags, tagLine)
 
-            case r'<' =>
-                requireNoNewlines(tag, tagLine)
-                return ParentTemplateSegmentAccumlator(_comp, false, outer, tag1, tagLine)
+            case r'$' => requireNoNewlines(tag, tagLine)
+                    return BlockSegmentAccumlator(
+                        _comp, false, outer, nextTags, tagLine)
 
-            case r'$' =>
-                requireNoNewlines(tag, tagLine)
-                return BlockSegmentAccumlator(_comp, false, outer, tag1, tagLine)
+            case r'^' => requireNoNewlines(tag, tagLine)
+                    return InvertedSegmentAccumlator(
+                        _comp, false, outer, nextTags, tagLine)
 
-            case r'^' =>
-                requireNoNewlines(tag, tagLine)
-                return InvertedSegmentAccumlator(_comp, false, outer, tag1, tagLine)
+            case r'/' => requireNoNewlines(tag, tagLine)
+                    return addCloseSectionSegment(nextTags, tagLine)
 
-            case r'/' =>
-                requireNoNewlines(tag, tagLine)
-                return addCloseSectionSegment(tag1, tagLine)
+            case r'!' => _segs.append(FauxSegment())
+                    return this
 
-            case r'!' =>
-                _segs.append(FauxSegment())
-                return this
+            case r'&' => requireNoNewlines(tag, tagLine)
+                    _segs.append(VariableSegment(
+                        nextTags, tagLine, _comp._formatter, Escapers.NONE))
+                    return this
 
-            case r'&' =>
-                requireNoNewlines(tag, tagLine)
-                _segs.append(VariableSegment(tag1, tagLine, _comp._formatter, Escapers.NONE))
-                return this
-
-            case _ =>
-                requireNoNewlines(tag, tagLine)
-                _segs.append(VariableSegment(tag, tagLine, _comp._formatter, _comp._escaper))
-                return this
+            case _ => requireNoNewlines(tag, tagLine)
+                    _segs.append(VariableSegment(
+                        tag, tagLine, _comp._formatter, _comp._escaper))
+                    return this
         }
     }
 
@@ -736,32 +752,32 @@ protected open class Accumlator {
         _segs.append(FauxSegment())
     }
 
-    public open func finish(): Array<Segment> {
+    open public func finish(): Array<Segment> {
         _segs.toArray()
     }
 
-    protected open func addCloseSectionSegment(tag: String, line: Int64): Accumlator {
-        throw MustacheParseException(
-            "Section close tag with no open tag '" + tag + "'",
-            line
-        )
+    open protected func addCloseSectionSegment(
+        tag: String, line: Int64): Accumlator {
+        throw  MustacheParseException(
+                "Section close tag with no open tag '" +
+                tag + "'", line)
     }
 
-    protected static func requireNoNewlines(tag: String, line: Int64): Unit {
+    protected static func requireNoNewlines(
+        tag: String, line: Int64): Unit {
         if (tag.indexOf(b'\n') != None || tag.indexOf(b'\r') != None) {
             throw MustacheParseException(
-                "Invalid tag name: contains newline '" + tag + "'",
-                line
-            )
+                "Invalid tag name: contains newline '" +
+                tag + "'", line)
         }
     }
 
-    protected static func requireSameName(name1: String, name2: String, line: Int64): Unit {
+    protected static func requireSameName(
+        name1: String, name2: String, line: Int64): Unit {
         if (!(name1 == name2)) {
             MustacheParseException(
-                "Section close tag with mismatched open tag '" + name2 + "' != '" + name1 + "'",
-                line
-            )
+                "Section close tag with mismatched open tag '" +
+                    name2 + "' != '" + name1 + "'", line)
         }
     }
 }
