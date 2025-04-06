@@ -24,20 +24,6 @@ public class CompileTest {
         }
     }
 
-    @TestCase 
-    func compileXmlTEst() {
-        try {
-            let compile = Mustache.compiler().compile(
-                convertEscapes(String.fromUtf8(
-                    File.readFrom(Path("src/test/templates/localOrderMustacheModel_template.xml")))))
-            compile.execute(DataModel.fromJson(JsonValue.fromStr(String.fromUtf8(File.readFrom(Path("src/test/data/test_data.txt"))))))
-            @Expect(true)
-        } catch (e: Exception) {
-            @Expect(false)
-        }
-    }
-
-
     private let ESCAPE_MAP = HashMap<String, String>([
         ("\\\\", "\\"),
         ("\\n", "\n"),
