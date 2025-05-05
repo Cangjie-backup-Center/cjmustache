@@ -524,7 +524,11 @@ public class Compiler {
     /** 如果提供的值为“false”，则返回true。如果{@link#emptyStringIsFalse}为true，
       * 则空字符串被视为false。如果{@link#zeroIsFalse}为真，则零值被视为假 */
     public func isFalsey(value: DataModel): Bool {
-        return ((_emptyStringIsFalse && isEmptyCharSequence(_formatter.format(value).serialize())) ||
+        if (value is DataModelStruct) {
+            return false
+        }
+
+        return ((_emptyStringIsFalse && isEmptyCharSequence(_formatter.format(value).serialize())) || 
                 (_zeroIsFalse && (value is DataModelInt) && (value as DataModelInt).getOrThrow().getValue() == 0) || 
                 (_zeroIsFalse && (value is DataModelFloat) && (value as DataModelFloat).getOrThrow().getValue() == 0.0f64))
     }
@@ -1876,6 +1880,9 @@ extend DataModel {
             case i64: DataModelInt => i64.getValue().toString()
             case f64: DataModelFloat => f64.getValue().toString()
             case bool: DataModelBool => bool.getValue().toString()
+            case seq: DataModelSeq => String.join(seq.getItems() |> 
+                                        map {item: DataModel => item.toString() } |>
+                                            collectArray<String>, delimiter: ", ")
             case none: DataModelNull => ""
             case _ => throw MustacheException("Unsupported type")
         }
