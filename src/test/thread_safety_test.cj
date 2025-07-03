@@ -2,8 +2,7 @@ package cjmustache.test
 
 import cjmustache.*
 
-import serialization.serialization.*
-import serialization.*
+import stdx.serialization.serialization.*
 import std.unittest.*
 import std.unittest.testmacro.*
 import std.io.*

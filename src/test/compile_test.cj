@@ -7,7 +7,6 @@ import std.unittest.testmacro.*
 import std.fs.*
 import std.collection.*
 
-
 @Test
 public class CompileTest {
     @TestCase func compileTEst() {

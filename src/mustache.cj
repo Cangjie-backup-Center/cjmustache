@@ -1,13 +1,12 @@
 package cjmustache
 
-import serialization.serialization.*
+import stdx.serialization.serialization.*
 import std.collection.concurrent.*
 import std.collection.*
-import encoding.json.*
+import stdx.encoding.json.ToJson
 import std.unicode.*
 import std.sync.*
 import std.io.*
-
 
 public class Mustache {
     protected static let NO_CHAR: Rune = r'\u{0000}'

@@ -1,6 +1,5 @@
 package cjmustache
 
-
  /* 捕获在 Mustache 模板处理过程中可能发生的各种错误,可以用于标识解析或执行模板时发生的任何问题。 */
 open public class MustacheException <: Exception {
     private let cause: Exception
