@@ -369,28 +369,6 @@ public class SharedTest {
                     DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
-// public class DiffTypeRenderClass_B_S <: Serializable<DiffTypeRenderClass_B_S> {
-//     var show = true
-//     var content = "<\n->"
-
-//     public func serialize(): DataModel {
-//         return DataModelStruct()
-//             .add(field<Bool>("show", show))
-//             .add(field<String>("content", content))
-//     }
-
-//     public static func deserialize(dm: DataModel): DiffTypeRenderClass_B_S {
-//         let dms = match (dm) {
-//             case data: DataModelStruct => data
-//             case _ => throw Exception("this data is not DataModelStruct")
-//         }
-//         let result = DiffTypeRenderClass_B_S()
-//         result.show = Bool.deserialize(dms.get("show"))
-//         result.content = String.deserialize(dms.get("content"))
-//         return result
-//     }
-// }
-
     @TestCase
     public func testPartialIndentWithBlock() {
         let json = 

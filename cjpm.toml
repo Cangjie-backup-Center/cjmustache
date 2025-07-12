@@ -33,8 +33,3 @@
     [target.x86_64-w64-mingw32.bin-dependencies]
       path-option = [ "${CANGJIE_STDX_PATH}/windows_x86_64_llvm/dynamic/stdx" ]
 
-# [target]
-#   [target.x86_64-w64-mingw32]                                                
-#     [target.x86_64-w64-mingw32.bin-dependencies]
-#       path-option = ["${CANGJIE_STDX_PATH}/windows_x86_64_llvm/dynamic/stdx"]
-

@@ -1378,7 +1378,7 @@ protected class BlockSegment <: AbstractSectionSegment {
 protected abstract class AbstractPartialSegment <: NamedSegment {
     protected let _comp: Compiler
     protected let _indent: String
-    private let lock = ReentrantMutex()
+    private let lock = Mutex()
     private var _template: ?Template = None 
 
     protected init(compiler: Compiler, name: String, line: Int64,

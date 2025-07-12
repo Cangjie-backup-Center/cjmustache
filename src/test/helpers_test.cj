@@ -5,7 +5,6 @@ import std.unittest.*
 import std.unittest.testmacro.*
 import std.io.*
 
-
 @Test
 public class helpersTest {
     private var str1 = "Hello, "

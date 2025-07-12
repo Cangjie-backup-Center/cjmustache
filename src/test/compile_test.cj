@@ -18,7 +18,6 @@ public class CompileTest {
         } catch (e: Exception) {
             @Expect(false)
         }
-
     }
 
     private let ESCAPE_MAP = HashMap<String, String>([
