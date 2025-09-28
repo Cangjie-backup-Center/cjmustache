@@ -9,7 +9,6 @@ import std.collection.*
 import serialization.serialization.*
 import encoding.json.*
 
-
 @Test
 public class CompileTest {
     @TestCase 

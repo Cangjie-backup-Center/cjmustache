@@ -1,9 +1,9 @@
 package cjmustache
 
-import serialization.serialization.*
+import stdx.serialization.serialization.*
 import std.collection.concurrent.*
 import std.collection.*
-import encoding.json.*
+import stdx.encoding.json.ToJson
 import std.unicode.*
 import std.sync.*
 import std.io.*
@@ -626,7 +626,7 @@ protected class Parser {
         else if (state == Mustache.MATCHING_END) {
             if (c == delims.end2) {
                 if (text.toString().toRuneArray()[0] == r'=') {
-                    delims.updateDelims(text.toString()[1..text.size-1])
+                    delims.updateDelims(text.toString().slice(begin: 1, end: text.size - 1))
                     text.reset(capacity: Some(1))
                     accum.addFauxSegment()
                 } else {
@@ -667,10 +667,10 @@ protected class Parser {
     private func getRunesFromInputStream(sourse: InputStream): Unit {
         let bufferedInputStream = BufferedInputStream(sourse)
         let byteList = ArrayList<Byte>()
-        let byteArr = Array<Byte>(1024, item: 0)
+        let byteArr = Array<Byte>(1024, repeat: 0)
         var readLen = bufferedInputStream.read(byteArr)
         while (readLen > 0) {
-            byteList.appendAll(byteArr[0..readLen])
+            byteList.add(all: byteArr[0..readLen])
             readLen = bufferedInputStream.read(byteArr)
         }
         sourceRunes = String.fromUtf8(byteList.toArray()).toRuneArray()
@@ -718,7 +718,7 @@ open protected class Accumlator {
                     return SectionSegmentAccumlator(
                         _comp, false, outer, nextTags, tagLine)
             
-            case r'>' => _segs.append(
+            case r'>' => _segs.add(
                     IncludedTemplateSegment(_comp, nextTags, tagLine))
                     return this
 
@@ -741,7 +741,7 @@ open protected class Accumlator {
                     return this
 
             case r'&' => requireNoNewlines(tag, tagLine)
-                    _segs.append(VariableSegment(
+                    _segs.add(VariableSegment(
                         nextTags, tagLine, _comp._formatter, Escapers.NONE))
                     return this
 
@@ -1339,8 +1339,8 @@ protected class BlockSegment <: AbstractSectionSegment {
 protected abstract class AbstractPartialSegment <: NamedSegment {
     protected let _comp: Compiler
     protected let _indent: String
-    private let lock = ReentrantMutex()
-    private var _template: ?Template = None
+    private let lock = Mutex()
+    private var _template: ?Template = None 
 
     protected init(compiler: Compiler, name: String, line: Int64, indent: String) {
         super(name, line)
@@ -1679,12 +1679,12 @@ protected class StringSegment <: Segment {
         }
 
         StringSegment(_text.slice(begin: lpos), -1, newTrail, _first)
-    }
-
+    } 
+    
     public func trimTrailBlank(): StringSegment {
-        return if (_trailBlank == -1) {
-            this
-        } else {
+        return if (_trailBlank == -1) { 
+            this 
+        } else { 
             StringSegment(_text.slice(end: _trailBlank), _leadBlank, -1, _first)
         }
     }

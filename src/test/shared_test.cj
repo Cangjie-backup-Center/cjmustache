@@ -2,199 +2,282 @@ package cjmustache.test
 
 import cjmustache.*
 
-import serialization.serialization.*
+import stdx.serialization.serialization.*
+import stdx.encoding.json.*
 import std.unittest.*
+import stdx.encoding.json.ToJson
 import std.unittest.testmacro.*
 import std.io.*
 import std.collection.*
 import std.convert.*
 import std.fs.*
 
-type L_I = ArrayList<Int64>
-type L_S = ArrayList<String>
-type A_I = Array<Int64>
-
-type M_SS = HashMap<String, String>
-type M_SOS = HashMap<String, ?String>
-type M_SL_I = HashMap<String, ArrayList<Int>>
-type M_SL_S = HashMap<String, ArrayList<String>>
-type M_SA_I = HashMap<String, Array<Int>>
-type M_SM_SS = HashMap<String, HashMap<String, String>>
-
-type L_M_SS = ArrayList<HashMap<String, String>>
-type A_M_SS = Array<HashMap<String, String>>
-
-type M_SL_M_SS = HashMap<String, ArrayList<HashMap<String, String>>>
-type M_SA_M_SS = HashMap<String, Array<HashMap<String, String>>>
-type M_SM_SA_M_SS  = HashMap<String, HashMap<String, Array<HashMap<String, String>>>>
-
-type M_SB = HashMap<String, Bool>
-
 @Test
 public class SharedTest {
     protected var name: String = ""
-    protected var partials = M_SS()
-    private let EMPTY = M_SS().serialize()
+    protected var partials = HashMap<String, String>()
+    private let EMPTY = DataModel.fromJson(JsonValue.fromStr("{}"))
 
     @TestCase
     public func simpleVariableTest() {
+        let json = 
+        """
+        { 
+            "foo": "bar"
+        }
+        """
         @Expect(test("bar", "{{foo}}", 
-            M_SS([("foo", "bar")]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
-    public func testPrimitiveArrayVariable () {  // NoneValueException
-        @Expect(test("1234", "{{#foo}}{{this}}{{/foo}}",
-            M_SL_I([("foo", L_I([1, 2, 3, 4]))]).serialize()))
+    public func testPrimitiveArrayVariable () {  
+        let json = 
+        """
+        {
+            "foo": [1, 2, 3, 4]
+        }
+        """
+        @Expect(test("1234", "{{#foo}}{{this}}{{/foo}}", 
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPrimitiveArrayIndexVariable() {
+        let json = 
+        """
+        {
+            "foo": [1, 2, 3, 4]
+        }
+        """
         @Expect(test("1", "{{foo.0}}",
-            M_SL_I([("foo", L_I([1, 2, 3, 4]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPrimitiveArrayIndexOutOfBoundsVariable() {
         let comp = Mustache.compiler().defaultValue("?");
+        let json = 
+        """
+        {
+            "foo": [1, 2, 3, 4]
+        }
+        """
         @Expect(test(comp, "?", "{{foo.4}}",
-            M_SL_I([("foo", L_I([1, 2, 3, 4]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testOneShotSection() { 
+        let json =
+        """
+        {
+            "foo": { "bar": "baz" }
+        }
+        """
         @Expect(test("baz", "{{#foo}}{{bar}}{{/foo}}",
-            M_SM_SS([("foo", M_SS([("bar", "baz")]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testListSection () {
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("bazbif", "{{#foo}}{{bar}}{{/foo}}", 
-        M_SL_M_SS([("foo", L_M_SS(
-            [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testListIndexSection() { 
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("baz", "{{#foo.0}}{{bar}}{{/foo.0}}",
-        M_SL_M_SS([("foo", L_M_SS(
-            [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testListIndexOutOfBoundsSection (){
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("", "{{#foo.2}}{{bar}}{{/foo.2}}",
-        M_SL_M_SS([("foo", L_M_SS(
-            [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testListItemSection () {
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("baz", "{{foo.0.bar}}", 
-        M_SL_M_SS([("foo", L_M_SS(
-            [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testArraySection() {
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("bazbif", "{{#foo}}{{bar}}{{/foo}}",
-            M_SA_M_SS([("foo", 
-                [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])])]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testArrayIndexSection() {
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("baz", "{{#foo.0}}{{bar}}{{/foo.0}}",
-            M_SA_M_SS([("foo", 
-                [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])])]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testArrayIndexOutOfBoundsSection() {
+        let json = 
+        """
+        {
+            "foo": [
+                {"bar": "baz"},
+                {"bar": "bif"}
+            ]
+        }
+        """
         @Expect(test("", "{{#foo.2}}{{bar}}{{/foo.2}}",
-            M_SA_M_SS([("foo", 
-                [M_SS([("bar", "baz")]), M_SS([("bar", "bif")])])]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
     
     @TestCase 
     public func testEmptyListSection() {
+        let json = 
+        """
+        {
+            "foo": []
+        }
+        """
         @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", 
-            M_SL_I([("foo", L_I())]).serialize()))
-    }
-
-    @TestCase
-    public func testEmptyArraySection() {
-        @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", 
-                    M_SA_I([("foo", A_I())]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testFalseSection() {
+        let json = 
+        """
+        {
+            "foo": false
+        }
+        """
         @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", 
-            M_SB([("foo", false)]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testNestedListSection() {
-        HashMap<String, HashMap<String, Array<HashMap<String, String>>>>()
+        let json = 
+        """
+        {
+            "a": {
+                "b": [ { "c": "1" }, { "c": "2" } ],
+                "d": [ { "e": "3" }, { "e": "4" } ]
+            }
+        }
+        """
         @Expect(test("1234", "{{#a}}{{#b}}{{c}}{{/b}}{{#d}}{{e}}{{/d}}{{/a}}",
-            M_SM_SA_M_SS([("a", M_SA_M_SS([
-                ("b", [M_SS([("c", "1")]), M_SS([("c", "2")])]), 
-                ("d", [M_SS([("e", "3")]), M_SS([("e", "4")])])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testNullSection() {
-        var ctx = M_SOS([("foo", None)]).serialize()
-        @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", ctx))
+        @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
         @Expect(test(Mustache.compiler().defaultValue(""), 
-                        "", "{{#foo}}{{bar}}{{/foo}}", ctx))
+                        "", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
         @Expect(test(Mustache.compiler().nullValue(""), 
-                        "", "{{#foo}}{{bar}}{{/foo}}", ctx))
+                        "", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
     }
 
     @TestCase
     public func testMissingNonStrictSection() {
-        // no foo; section omitted due to non-strict-sections
         @Expect(test("", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
-        // no foo; no exception because nullValue does change section strictness
+
         @Expect(test(Mustache.compiler().nullValue(""), 
                         "", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
-        // no foo; no exception because defaultValue does change section strictness
+
         @Expect(test(Mustache.compiler().defaultValue(""),
                         "", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
     }
 
     @TestCase 
-    public func testMissingStrictSection() {  // 不能准确抛出需要的错误
+    public func testMissingStrictSection() { 
         try {
             @Expect(test(Mustache.compiler().strictSections(true), 
                         "", "{{#foo}}{{bar}}{{/foo}}", EMPTY))
-                         // no foo; should throw exception due to strict-sections
             @Assert(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {}
     }
 
     @TestCase 
     public func testMissingStrictSectionDefaultValue() {
         try {
-            // missing strict-sections always throw regardless of defaultValue()
             @Expect(test(Mustache.compiler().strictSections(true).defaultValue(""), "",
                 "{{#foo}}{{bar}}{{/foo}}", EMPTY))
             @Assert(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {}
     }
 
     @TestCase
     public func testSectionWithFalseyEmptyString() {
-        var ctx = M_SS([("foo", ""), ("bar", "nonempty")]).serialize()
-        // test normal sections with falsey empty string
+        let json = 
+        """
+        {
+            "foo": "",
+            "bar": "nonempty"
+        }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
+        
         var compiler = Mustache.compiler().emptyStringIsFalse(true)
-        @Expect(test(compiler, "",     "{{#foo}}test{{/foo}}", ctx))
-        @Expect(test(compiler, "test", "{{#bar}}test{{/bar}}", ctx))
-        // test inverted sections with falsey empty string
-        @Expect(test(compiler, "test", "{{^foo}}test{{/foo}}", ctx))
-        @Expect(test(compiler, "",     "{{^bar}}test{{/bar}}", ctx))
+        @Expect(test(compiler, "",     "{{#foo}}test{{/foo}}", dataModel))
+        @Expect(test(compiler, "test", "{{#bar}}test{{/bar}}", dataModel))
+
+        @Expect(test(compiler, "test", "{{^foo}}test{{/foo}}", dataModel))
+        @Expect(test(compiler, "",     "{{^bar}}test{{/bar}}", dataModel))
     }
 
     @TestCase
@@ -212,23 +295,31 @@ public class SharedTest {
         try {
             test(None, "{{>foo}}", DataModelNull())
             @Assert(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {} 
     }
 
     @TestCase 
     public func testPartial() {
+        let json = 
+        """
+        { "bar": "foo" }
+        """
         @Expect(test(Mustache.compiler().withLoader(
                 fpartials(("foo", "inside:{{bar}}"), ("baz", "nonfoo")))
                     , "foo inside:foo nonfoo foo", "{{bar}} {{>foo}} {{>baz}} {{bar}}", 
-                        M_SS([("bar", "foo")]).serialize()))
+                        DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPartialIndent() {
+        let json = 
+        """
+        { "content": "<\n->" }
+        """
         @Expect(test(Mustache.compiler().withLoader(
             StringTemplateLoader("|\n{{{content}}}\n|\n"))
                 , "\\\n |\n <\n->\n |\n/\n", "\\\n {{>partial}}\n/\n",
-                    M_SS([("content", "<\n->")]).serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
@@ -257,133 +348,218 @@ public class SharedTest {
 
     @TestCase
     public func testNestedPartialIndent() {
+        let json = 
+        """
+        { "content": "<\n->" }
+        """
         let loader = fpartials(("partial", "1\n {{>nest}}\n1\n"), ("nest", "2\n{{{content}}}\n2\n"))
         @Expect(test(Mustache.compiler().withLoader(loader), "|\n 1\n  2\n  <\n->\n  2\n 1\n|\n",
-            "|\n {{>partial}}\n|\n", M_SS([("content", "<\n->")]).serialize()))
+            "|\n {{>partial}}\n|\n", DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPartialIndentWithVariableAtTheStart() {
+        let json = 
+        """
+        { "content": "<\n->" }
+        """
         @Expect(test(Mustache.compiler().withLoader(
                 StringTemplateLoader("{{{content}}}\n|\n"))
                 , "\\\n <\n->\n |\n/\n", "\\\n {{>partial}}\n/\n", 
-                    M_SS([("content", "<\n->")]).serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPartialIndentWithBlock() {
+        let json = 
+        """
+        { 
+            "show": true,
+            "content": "<\n->"
+        }
+        """
         @Expect(test(Mustache.compiler().withLoader(
             StringTemplateLoader("|\n{{#show}}\n{{{content}}}{{/show}}\n|\n"))
                 , "\\\n |\n <\n->\n |\n/\n", "\\\n {{>partial}}\n/\n", 
-                    DiffTypeRenderClass_B_S().serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase public func testPartialIndentInBlock() {
+        let json = 
+        """
+        { "show": true }
+        """
         @Expect(test(Mustache.compiler().withLoader(StringTemplateLoader("content"))
             , " content", "{{#show}}\n {{>partial}}\n{{/show}}\n", 
-                M_SB([("show", true)]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testPartialIndentWithBlockAtStart() {
+        let json = 
+        """
+        { 
+            "show": true,
+            "content": "<\n->" 
+        }
+        """
         @Expect(test(Mustache.compiler().withLoader(
             StringTemplateLoader("{{#show}}\n{{{content}}}{{/show}}\n|\n"))
                 , "\\\n <\n->\n |\n/\n", "\\\n {{>partial}}\n/\n", 
-                    DiffTypeRenderClass_B_S().serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testPartialIndentWithInlineBlock() {
+        let json = 
+        """
+        { "show": true }
+        """
         @Expect(test(Mustache.compiler().withLoader(
             StringTemplateLoader("line {{#show}}content{{/show}}\n"))
                 , "\\\n line content\n/\n", "\\\n {{>partial}}\n/\n",
-                    M_SB([("show", true)]).serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testPartialPlusNestedContext() {
+        let json = 
+        """
+        {
+            "name": "foo",
+            "things": [
+                { "thing_name": "bar" },
+                { "thing_name": "baz" }
+            ]
+        }
+        """
         @Expect(test(Mustache.compiler().withLoader(
             DualStrNestedTemplateLoader("{{name}}{{thing_name}}", "nonfoo"))
                 , "foo((foobar)(foobaz))", "{{name}}({{#things}}({{>nested}}){{/things}})",
-                    DiffTypeRenderClass_S_L_M_SS().serialize()))
+                    DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testDelimiterChange() {
+        let json = 
+        """
+        { "one": "foo", "two": "bar", "three": "baz" }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
         @Expect(test("foo bar baz", "{{one}} {{=<% %>=}}<%two%><%={{ }}=%> {{three}}",
-            M_SS([("one", "foo"), ("two", "bar"), ("three", "baz")]).serialize()))
+            dataModel))
         @Expect(test("baz bar foo", "{{three}} {{=% %=}}%two%%={{ }}=% {{one}}",
-            M_SS([("one", "foo"), ("two", "bar"), ("three", "baz")]).serialize()))
+            dataModel))
     }
 
     @TestCase
     public func testUnescapeHTML() {
+        let json = 
+        """
+        { "a": "<b>" }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
         @Expect(check("<b>", Mustache.compiler().escapeHTML(true).compile("{{&a}}").
-            execute(M_SS([("a", "<b>")]).serialize())))
+            execute(dataModel)))
         @Expect(check("<b>", Mustache.compiler().escapeHTML(true).compile("{{{a}}}").
-            execute(M_SS([("a", "<b>")]).serialize())))
-        // make sure these also work when escape HTML is off
+            execute(dataModel)))
         @Expect(check("<b>", Mustache.compiler().escapeHTML(false).compile("{{&a}}").
-            execute(M_SS([("a", "<b>")]).serialize())))
+            execute(dataModel)))
         @Expect(check("<b>", Mustache.compiler().escapeHTML(false).compile("{{{a}}}").
-            execute(M_SS([("a", "<b>")]).serialize())))
+            execute(dataModel)))
     }
 
     @TestCase 
     public func testStrayTagCharacters() {
-        @Expect(test("funny [b] business {{", "funny {{a}} business {{", M_SS([("a", "[b]")]).serialize()))
-        @Expect(test("funny <b> business {{", "funny {{{a}}} business {{", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("{{ funny [b] business", "{{ funny {{a}} business", M_SS([("a", "[b]")]).serialize()))
-        @Expect(test("{{ funny <b> business", "{{ funny {{{a}}} business", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("funny [b] business }}", "funny {{a}} business }}", M_SS([("a", "[b]")]).serialize()))
-        @Expect(test("funny <b> business }}", "funny {{{a}}} business }}", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("}} funny [b] business", "}} funny {{a}} business", M_SS([("a", "[b]")]).serialize()))
-        @Expect(test("}} funny <b> business", "}} funny {{{a}}} business", M_SS([("a", "<b>")]).serialize()))
+        let json1 = 
+        """
+        { "a": "[b]" }
+        """
+        let dataModedl = DataModel.fromJson(JsonValue.fromStr(json1))
+        let json2 = 
+        """
+        { "a": "<b>" }
+        """
+        let dataModel2 = DataModel.fromJson(JsonValue.fromStr(json2))
+        @Expect(test("funny [b] business {{", "funny {{a}} business {{", dataModedl))
+        @Expect(test("funny <b> business {{", "funny {{{a}}} business {{", dataModel2))
+        @Expect(test("{{ funny [b] business", "{{ funny {{a}} business", dataModedl))
+        @Expect(test("{{ funny <b> business", "{{ funny {{{a}}} business", dataModel2))
+        @Expect(test("funny [b] business }}", "funny {{a}} business }}", dataModedl))
+        @Expect(test("funny <b> business }}", "funny {{{a}}} business }}", dataModel2))
+        @Expect(test("}} funny [b] business", "}} funny {{a}} business", dataModedl))
+        @Expect(test("}} funny <b> business", "}} funny {{{a}}} business", dataModel2))
     }
 
     @TestCase 
     public func testInvalidUnescapeHTML() {
+        let json = 
+        """
+        { "a": "<b>" }
+        """
         try {
             Mustache.compiler().escapeHTML(true).compile("{{{a}}").execute(
-                M_SS([("a", "<b>")]).serialize())
+                DataModel.fromJson(JsonValue.fromStr(json)))
             @Assert(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {} 
     }
 
     @TestCase 
     public func testEscapeHTML () {
+        let json1 = 
+        """
+        { "a": "<b>" }
+        """
+        let dataModel1 = DataModel.fromJson(JsonValue.fromStr(json1))
+        let json2 = 
+        """
+        { "a": "`=" }
+        """
+        let dataModel2 = DataModel.fromJson(JsonValue.fromStr(json2))
         @Expect(check("&lt;b&gt;", Mustache.compiler().compile("{{a}}").execute(
-            M_SS([("a", "<b>")]).serialize())))
+            dataModel1)))
         @Expect(check("<b>", Mustache.compiler().escapeHTML(false).compile("{{a}}").
-            execute(M_SS([("a", "<b>")]).serialize())))
-        // ensure that some potential XSS enablers are escaped
+            execute(dataModel1)))
         @Expect(check("&#x60;&#x3D;", Mustache.compiler().compile("{{a}}").execute(
-            M_SS([("a", "`=")]).serialize())))
+            dataModel2)))
     }
 
     @TestCase 
     public func testUserDefinedEscaping(){
+        let json = 
+        """
+        { "a": "[b]" }
+        """
         let escaper = Escapers.simple([
             [ "[", ":BEGIN:" ],
             [ "]", ":END:" ]
         ])
         @Expect(check(":BEGIN:b:END:", Mustache.compiler().withEscaper(escaper).
-            compile("{{a}}").execute(M_SS([("a", "[b]")]).serialize())))
+            compile("{{a}}").execute(DataModel.fromJson(JsonValue.fromStr(json)))))
     }
 
     @TestCase 
     public func testPartialDelimiterMatch() {
+        let json = 
+        """
+        { "bob}bob": "bar" }
+        """
         @Expect(check("{bob}", Mustache.compiler().compile("{bob}").execute(EMPTY)))
         @Expect(check("bar", Mustache.compiler().compile("{{bob}bob}}").execute(
-            M_SS([("bob}bob", "bar")]).serialize())))
+            DataModel.fromJson(JsonValue.fromStr(json)))))
     }
 
     @TestCase
     public func testDanglingTag() {
-        @Expect(test("foo{", "foo{", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("foo{{", "foo{{", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("foo{{a", "foo{{a", M_SS([("a", "<b>")]).serialize()))
-        @Expect(test("foo{{a}", "foo{{a}", M_SS([("a", "<b>")]).serialize()))
+        let json = 
+        """
+        { "a": "<b>" }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
+        @Expect(test("foo{", "foo{", dataModel))
+        @Expect(test("foo{{", "foo{{", dataModel))
+        @Expect(test("foo{{a", "foo{{a", dataModel))
+        @Expect(test("foo{{a}", "foo{{a}", dataModel))
     }
 
     @TestCase 
@@ -394,10 +570,15 @@ public class SharedTest {
 
     @TestCase 
     public func testNestedThis() {
+        let json = 
+        """
+        { "things": ["bar", "baz", "bif"] }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
         @Expect(check("barbazbif", Mustache.compiler().compile("{{#things}}{{this}}{{/things}}").
-            execute(M_SL_S([("things", L_S(["bar", "baz", "bif"]))]).serialize())))
+            execute(dataModel)))
         @Expect(check("barbazbif", Mustache.compiler().compile("{{#things}}{{.}}{{/things}}").
-            execute(M_SL_S([("things", L_S(["bar", "baz", "bif"]))]).serialize())))
+            execute(dataModel)))
     }
 
     @TestCase 
@@ -417,8 +598,12 @@ public class SharedTest {
 
     @TestCase 
     public func testNoTrimNewlineFromNestedTagAt0() {
+        let json = 
+        """
+        { "boolean": false }
+        """
         @Expect(test(" | \n  | \n", " | {{^boolean}}{{! comment }}\n {{/boolean}} | \n",
-            M_SB([("boolean", false)]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
@@ -456,7 +641,17 @@ public class SharedTest {
         @Expect(viz.keys.contains("five"))
     }
 
-    protected func testNewlineSkipping (sep: String) {
+    protected func testNewlineSkipping(sep: String) {
+        let json1 = 
+        """
+        { "items": ["one", "two", "three"] }
+        """
+        let dataModel1 = DataModel.fromJson(JsonValue.fromStr(json1))
+        let json2 = 
+        """
+        { "items": [] }
+        """
+        let dataModel2 = DataModel.fromJson(JsonValue.fromStr(json2))
         let tmpl = "list:" + sep +
             "{{#items}}" + sep +
             "{{this}}" + sep +
@@ -469,12 +664,11 @@ public class SharedTest {
             "one" + sep +
             "two" + sep +
             "three" + sep +
-            "endlist", tmpl, M_SL_S([("items", L_S(["one", "two", "three"]))]).serialize()))
+            "endlist", tmpl, dataModel1))
         @Expect(test("list:" + sep +
             "no items" + sep +
-            "endlist", tmpl, M_SL_S([("items", L_S())]).serialize()))
+            "endlist", tmpl, dataModel2))
 
-        // this tests newline trimming even if the group tags have leading/trailing whitespace
         let htmlTmpl =
             "<ul>" + sep +
             "  {{#items}}  " + sep +
@@ -488,93 +682,157 @@ public class SharedTest {
             "  <li>one</li>" + sep +
             "  <li>two</li>" + sep +
             "  <li>three</li>" + sep +
-            "</ul>", htmlTmpl, M_SL_S([("items", L_S(["one", "two", "three"]))]).serialize()))
+            "</ul>", htmlTmpl, dataModel1))
         @Expect(test("<ul>" + sep +
             "  <li>no items</li>" + sep +
-            "</ul>", htmlTmpl, M_SL_S([("items", L_S())]).serialize()))
+            "</ul>", htmlTmpl, dataModel2))
     }
 
     @TestCase
     public func testNewlineNonSkipping () {
-        // only when a section tag is by itself on a line should we absorb the newline following it
+        let json1 = 
+        """
+        { "thing": true }
+        """
+        let json2 = 
+        """
+        { "thing": false }
+        """
         let tmpl = "thing?: {{#thing}}yes{{/thing}}{{^thing}}no{{/thing}}\n" +
             "that's nice";
         @Expect(test("thing?: yes\n" +
-            "that's nice", tmpl, M_SB([("thing", true)]).serialize()))
+            "that's nice", tmpl, DataModel.fromJson(JsonValue.fromStr(json1))))
         @Expect(test("thing?: no\n" +
-            "that's nice", tmpl, M_SB([("thing", false)]).serialize()))
+            "that's nice", tmpl, DataModel.fromJson(JsonValue.fromStr(json2))))
     }
 
     @TestCase
-    public func testNestedContexts () {
+    public func testNestedContexts() {
+        let json = 
+        """
+        {
+            "name": "foo",
+            "things": [
+                { "thing_name": "bar" },
+                { "thing_name": "baz" }
+            ]
+        }
+        """
         @Expect(test("foo((foobar)(foobaz))", "{{name}}({{#things}}({{name}}{{thing_name}}){{/things}})",
-            DiffTypeRenderClass_S_L_M_SS().serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testShadowedContext() {
+        let json = 
+        """
+        {
+            "name": "foo",
+            "things": [
+                { "name": "bar" },
+                { "name": "baz" }
+            ]
+        }
+        """
         @Expect(test("foo((bar)(baz))", "{{name}}({{#things}}({{name}}){{/things}})",
-            DiffTypeRenderClass_S_L_M_SS("foo", L_M_SS([M_SS([("name", "bar")]), M_SS([("name", "baz")])])).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testFirst() {
+        let json = 
+        """
+        { "things": ["foo", "bar", "baz"] }
+        """
         @Expect(test("foo|bar|baz", "{{#things}}{{^-first}}|{{/-first}}{{this}}{{/things}}",
-            M_SL_S([("things", L_S(["foo", "bar", "baz"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testLast() {
+        let json = 
+        """
+        { "things": ["foo", "bar", "baz"] }
+        """
         @Expect(test("foo|bar|baz", "{{#things}}{{this}}{{^-last}}|{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["foo", "bar", "baz"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testFirstLast() { 
+        let json = 
+        """
+        { "things": ["foo"] }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
         @Expect(test("[foo]", "{{#things}}{{#-first}}[{{/-first}}{{this}}{{#-last}}]{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["foo"]))]).serialize()))
+            dataModel))
         @Expect(test("foo", "{{#things}}{{this}}{{^-last}}|{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["foo"]))]).serialize()))
+            dataModel))
     }
 
     @TestCase 
     public func testFirstLastCombo() {
+        let json = 
+        """
+        { "things": ["_and_"] }
+        """
         @Expect(test("FIRST_and_LAST", "{{#things}}{{#-first}}FIRST{{/-first}}{{this}}{{#-last}}LAST{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["_and_"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testInverseFirstLastCombo() {  
+        let json = 
+        """
+        { "things": ["_and_"] }
+        """
         @Expect(test("_and_", "{{#things}}{{^-first}}NOT-FIRST{{/-first}}{{this}}{{^-last}}NOT-LAST{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["_and_"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testNotFirst() { 
+        let json = 
+        """
+        { "things": ["1", "2", "3"] }
+        """
         @Expect(test("1,2,3", "{{#things}}{{^-first}},{{/-first}}{{this}}{{/things}}",
-            M_SL_S([("things", L_S(["1", "2", "3"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testNotLast() {
+        let json = 
+        """
+        { "things": ["1", "2", "3"] }
+        """
         @Expect(test("1,2,3", "{{#things}}{{this}}{{^-last}},{{/-last}}{{/things}}",
-            M_SL_S([("things", L_S(["1", "2", "3"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testIndex() {
+        let json = 
+        """
+        { "things": ["foo", "bar", "baz"] }
+        """
         @Expect(test("123", "{{#things}}{{-index}}{{/things}}",
-            M_SL_S([("things", L_S(["foo", "bar", "baz"]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testNestedIndex() {
+        let json = 
+        """
+        { "fooList": [ { "name": "a", "quantity": "1" }, { "name": "b" } ] }
+        """
         let tmpl =
             "{{#fooList}}\n" +
             "{{#quantity}}|q{{-index}}={{quantity}}{{/quantity}}|{{name}}\n" +
             "{{/fooList}}"
         @Expect(test("|q1=1|a\n|b\n", tmpl,
-            M_SL_M_SS([("fooList", L_M_SS([M_SS([("name", "a"), ("quantity", "1")]), M_SS([("name", "b")])]))]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
@@ -590,74 +848,110 @@ public class SharedTest {
 
     @TestCase 
     public func testStandardsModeWithDotValue() {
+        let json = 
+        """
+        { "foo": "bar" }
+        """
         let tmpl = "{{#foo}}:{{.}}:{{/foo}}"
         let result = Mustache.compiler().standardsMode(true).compile(tmpl).
-            execute(M_SS([("foo", "bar")]).serialize())
+            execute(DataModel.fromJson(JsonValue.fromStr(json)))
         @Expect(check(":bar:", result))
     }
 
     @TestCase 
     public func testStandardsModeWithNoParentContextSearching() {
+        let json =
+        """
+        { "parent": {}, "parentProperty": "bar" }
+        """
         try {
             let tmpl = "{{#parent}}foo{{parentProperty}}bar{{/parent}}"
             let result = Mustache.compiler().standardsMode(true).compile(tmpl).
-                execute(DiffTypeRenderClass_M_SS_S(M_SS(), "bar").serialize())
+                execute(DataModel.fromJson(JsonValue.fromStr(json)))
             @Expect(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {} 
     }
 
     @TestCase 
     public func testMissingValue() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         try {
-            test("n/a", "{{missing}} {{notmissing}}", M_SS([("notmissing", "bar")]).serialize())
+            test("n/a", "{{missing}} {{notmissing}}", 
+                DataModel.fromJson(JsonValue.fromStr(json)))
             @Expect(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {} 
     }
 
     @TestCase 
     public func testMissingValueWithDefault() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         @Expect(test(Mustache.compiler().defaultValue(""),
             "bar", "{{missing}}{{notmissing}}", 
-                M_SS([("notmissing", "bar")]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testMissingValueWithDefaultNonEmptyString() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         @Expect(test(Mustache.compiler().defaultValue("foo"),
             "foobar", "{{missing}}{{notmissing}}", 
-                M_SS([("notmissing", "bar")]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testMissingValueWithDefaultSubstitution() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         @Expect(test(Mustache.compiler().defaultValue("?{{name}}?"),
             "?missing?bar", "{{missing}}{{notmissing}}",
-                M_SS([("notmissing", "bar")]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testMissingValueWithDefaultSubstitution2() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         @Expect(test(Mustache.compiler().defaultValue("{{{{name}}}}"),
             "{{missing}}bar", "{{missing}}{{notmissing}}",
-                M_SS([("notmissing", "bar")]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testMissingValueWithDefaultSubstitution3() {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         @Expect(test(Mustache.compiler().defaultValue("{{?{{name}}?}}"),
             "{{?missing?}}bar", "{{missing}}{{notmissing}}", 
-                M_SS([("notmissing", "bar")]).serialize()))
+                DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase
     public func testMissingValueWithNullDefault () {
+        let json = 
+        """
+        { "notmissing": "bar" }
+        """
         try {
-            // no field or method for 'missing'
             test(Mustache.compiler().nullValue(""), 
                 "bar", "{{missing}}{{notmissing}}", 
-                    M_SS([("notmissing", "bar")]).serialize())
+                    DataModel.fromJson(JsonValue.fromStr(json)))
             @Expect(false)
-        } catch (me: Exception) {} // expected
+        } catch (me: Exception) {} 
     }
 
     @TestCase 
@@ -680,31 +974,55 @@ public class SharedTest {
 
     @TestCase 
     public func testNonStandardDefaultDelims() {
+        let json = 
+        """
+        { "foo": "bar" }
+        """
         @Expect(test(Mustache.compiler().withDelims("<% %>"), "bar", "<%foo%>", 
-            M_SS([("foo", "bar")]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json))))
     }
 
     @TestCase 
     public func testCompilingDoesntChangeCompilersDelimiters() {
-        let compiler = Mustache.compiler();
-        let ctx = M_SS([("variable", "value")]).serialize()
-        @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", ctx))
-        @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", ctx))
+        let json = 
+        """
+        { "variable": "value" }
+        """
+        let dataModel = DataModel.fromJson(JsonValue.fromStr(json))
+        let compiler = Mustache.compiler()
+        @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", dataModel))
+        @Expect(test(compiler, "value", "{{=<% %>=}}<% variable %>", dataModel))
     }
 
     @TestCase
     public func testChinese() {
+        let json1 = 
+        """
+        { "foo": "世界" }
+        """
         @Expect(test("你好, 世界!", "你好, {{foo}}!", 
-            M_SS([("foo", "世界")]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json1))))
 
+        let json2 =
+        """
+        { "中": "世界" }
+        """
         @Expect(test("你好, 世界!", "你好, {{中}}!", 
-            M_SS([("中", "世界")]).serialize()))
-
+            DataModel.fromJson(JsonValue.fromStr(json2))))
+        
+        let json3 =
+        """
+        { "中foo中": "世界" }
+        """
         @Expect(test("你好, 世界!", "你好, {{中foo中}}!", 
-            M_SS([("中foo中", "世界")]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json3))))
 
+        let json4 = 
+        """
+        { "中中foo……下%#上中": "世界" }
+        """
         @Expect(test("你好, 世界!", "你好, {{中中foo……下%#上中}}!", 
-            M_SS([("中中foo……下%#上中", "世界")]).serialize()))
+            DataModel.fromJson(JsonValue.fromStr(json4))))
     }
 
     protected func test(compiler: Compiler, expected: ?String, template: String, ctx: DataModel): Bool {
@@ -799,64 +1117,10 @@ public class DualStrNestedTemplateLoader <: TemplateLoader {
     public DualStrNestedTemplateLoader(let str1: String, let str2: String) {}
 
     public func getTemplate(name: String): InputStream {
-        let byteArrayStream = ByteArrayStream()
-        if (name == "nested") {
-            byteArrayStream.write(str1.toArray())
-            return BufferedInputStream(byteArrayStream)
+        if (name.equalsIgnoreAsciiCase("nested")) {
+            return BufferedInputStream(ByteBuffer(str1.toArray()))
         }
-        byteArrayStream.write(str2.toArray())
-        return BufferedInputStream(byteArrayStream)
-    }
-}
-
-public class DiffTypeRenderClass_B_S <: Serializable<DiffTypeRenderClass_B_S> {
-    var show = true
-    var content = "<\n->"
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<Bool>("show", show))
-            .add(field<String>("content", content))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_B_S {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_B_S()
-        result.show = Bool.deserialize(dms.get("show"))
-        result.content = String.deserialize(dms.get("content"))
-        return result
-    }
-}
-
-public class DiffTypeRenderClass_S_L_M_SS <: Serializable<DiffTypeRenderClass_S_L_M_SS> {
-    var name = "foo"
-    var things = L_M_SS([M_SS([("thing_name", "bar")]), M_SS([("thing_name", "baz")])])
-
-    public DiffTypeRenderClass_S_L_M_SS() {}
-
-    public init(_name: String, _things: L_M_SS) {
-        name = _name
-        things = _things
-    }
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<String>("name", name))
-            .add(field<L_M_SS>("things", things))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_S_L_M_SS {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_S_L_M_SS()
-        result.name = String.deserialize(dms.get("name"))
-        result.things = L_M_SS.deserialize(dms.get("things"))
-        return result
+        return BufferedInputStream(ByteBuffer(str2.toArray()))
     }
 }
 
@@ -866,124 +1130,6 @@ public abstract class AbsDiffTypeRenderClass <: Serializable<AbsDiffTypeRenderCl
         throw UnInplementException()
     }
 }
-
-public class DiffTypeRenderClass_S_L <: Serializable<DiffTypeRenderClass_S_L> {
-    var name = "level2a"
-    var properties = L_I()
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<String>("name", name))
-            .add(field<L_I>("properties", properties))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_S_L {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_S_L()
-        result.name = String.deserialize(dms.get("name"))
-        result.properties = L_I.deserialize(dms.get("properties"))
-        return result
-    }
-}
-
-public class DiffTypeRenderClass_S_C <: AbsDiffTypeRenderClass & Serializable<DiffTypeRenderClass_S_C>{
-    var name = "level1a"
-    var properties = DiffTypeRenderClass_S_L()
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<String>("name", name))
-            .add(field<DiffTypeRenderClass_S_L>("properties", properties))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_S_C {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_S_C()
-        result.name = String.deserialize(dms.get("name"))
-        result.properties = DiffTypeRenderClass_S_L.deserialize(dms.get("properties"))
-        return result
-    }
-}
-
-public class DiffTypeRenderClass_S_M_SS <: AbsDiffTypeRenderClass & Serializable<DiffTypeRenderClass_S_M_SS> {
-    var name = "level1b"
-    var properties = M_SS([("name", "level2b"), ("properties", "")])
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<String>("name", name))
-            .add(field<M_SS>("properties", properties))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_S_M_SS {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_S_M_SS()
-        result.name = String.deserialize(dms.get("name"))
-        result.properties = M_SS.deserialize(dms.get("properties"))
-        return result
-    }
-}
-
-public class DiffTypeRenderClass_S_L_G <: Serializable<DiffTypeRenderClass_S_L_G> {
-    var name = "level0"
-    var properties = ArrayList<AbsDiffTypeRenderClass>([DiffTypeRenderClass_S_C(), DiffTypeRenderClass_S_M_SS()])
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<String>("name", name))
-            .add(field<ArrayList<AbsDiffTypeRenderClass>>("properties", properties))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_S_L_G {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-        let result = DiffTypeRenderClass_S_L_G()
-        result.name = String.deserialize(dms.get("name"))
-        result.properties = ArrayList<AbsDiffTypeRenderClass>.deserialize(dms.get("properties"))
-        return result
-    }
-}
-
-public class DiffTypeRenderClass_M_SS_S <: Serializable<DiffTypeRenderClass_M_SS_S> {
-    var parent: M_SS
-    var parentProperty: String
-
-    public init(_parent: M_SS, _parentProperty: String) {
-        parent = _parent
-        parentProperty = _parentProperty
-    }
-
-    public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<M_SS>("parent", parent))
-            .add(field<String>("parentProperty", parentProperty))
-    }
-
-    public static func deserialize(dm: DataModel): DiffTypeRenderClass_M_SS_S {
-        let dms = match (dm) {
-            case data: DataModelStruct => data
-            case _ => throw Exception("this data is not DataModelStruct")
-        }
-
-        let result = DiffTypeRenderClass_M_SS_S(
-            M_SS.deserialize(dms.get("parent")),
-            String.deserialize(dms.get("parentProperty"))
-        )
-        return result
-    }
-}
-
 
 public class GetKeysVisitor <: Visitor {
     public let keys = HashSet<String>()

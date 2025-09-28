@@ -1,6 +1,6 @@
 package cjmustache
 
-import serialization.serialization.*
+import stdx.serialization.serialization.*
 import std.io.*
 
 public func appendOrWrite(
@@ -23,7 +23,8 @@ public func appendOrWrite(
         extractedStringBuilder.append(raw.slice(begin: start, end: end))
     }
     if (let Some(extractedOutputStream) <- out) {
-        extractedOutputStream.write(raw.slice(begin: start, end: end).toArray())
+        extractedOutputStream.
+        write(raw.slice(begin: start, end: end).toArray())
     }
 }
 

@@ -1,6 +1,6 @@
 package cjmustache
 
-import serialization.serialization.*
+import stdx.serialization.serialization.*
 import std.collection.concurrent.*
 import std.collection.*
 import std.convert.*
