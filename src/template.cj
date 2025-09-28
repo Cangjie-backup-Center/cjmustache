@@ -30,11 +30,11 @@ public class Template {
     }
 
     public func execute(context: DataModel): String {
-        let byteArrayStream = ByteArrayStream()
+        let byteArrayStream = ByteBuffer()
         let out = BufferedOutputStream(byteArrayStream)
         execute(context, out)
         out.flush()
-        return String.fromUtf8(byteArrayStream.readToEnd())
+        return String.fromUtf8(readToEnd(byteArrayStream))
     }
 
     public func execute(context: DataModel, out: OutputStream): Unit {
@@ -64,7 +64,7 @@ public class Template {
       * 如果标识没有改变任何东西，我们将返回原始模板
       */
     protected func indent(indent: String): Template {
-        if (indent == "") {
+        if (indent.equalsIgnoreAsciiCase("")) {
             return this
         }
 
@@ -120,11 +120,11 @@ public class Template {
         ctx: Context, name: String, line: Int64,
             missingIsNull: Bool): DataModel {
         /* 处理我们的特殊变量 */
-        if (name == FIRST_NAME) {
+        if (name.equalsIgnoreAsciiCase(FIRST_NAME)) {
             return ctx.onFirst.serialize()
-        } else if (name == LAST_NAME) {
+        } else if (name.equalsIgnoreAsciiCase(LAST_NAME)) {
             return ctx.onLast.serialize()
-        } else if (name == INDEX_NAME) {
+        } else if (name.equalsIgnoreAsciiCase(INDEX_NAME)) {
             return ctx.index.serialize()
         }
 
@@ -160,7 +160,7 @@ public class Template {
         /* 如果我们到达这里，我们在这个或我们的父环境中什么也没发现...... */
 
         /* 如果我们有一个复合键，分解该值并逐步解析 */
-        if (!(name ==DOT_NAME) && 
+        if (!name.equalsIgnoreAsciiCase(DOT_NAME) && 
             name.indexOf(DOT_NAME) != None) {
                 return getCompoundValue(
                     ctx, name, line, missingIsNull)
@@ -269,7 +269,7 @@ public class Template {
         }
 
         let value = (fetcher.getOrThrow()).get(data, name)
-        _fcache.put(key.toString(), fetcher.getOrThrow())
+        _fcache.add(key.toString(), fetcher.getOrThrow())
 
         return value
     }
@@ -293,8 +293,8 @@ public class Template {
     }
 
     protected static func isThisName(name: String): Bool {
-        DOT_NAME == name || 
-        THIS_NAME == name
+        DOT_NAME.equalsIgnoreAsciiCase(name) || 
+        THIS_NAME.equalsIgnoreAsciiCase(name)
     }
 
     protected static let NOT_FOUND_FETCHER =
@@ -404,8 +404,9 @@ protected class Key {
     }
 
     public func equals(other: Key): Bool {
-        return getDataModelType() == other.getDataModelType() && 
-                name == other.name
+        return getDataModelType()
+            .equalsIgnoreAsciiCase(other.getDataModelType()) && 
+                name.equalsIgnoreAsciiCase(other.name)
     }
 
     public func toString(): String {
@@ -503,22 +504,22 @@ public abstract class Fragment {
 
     /**执行此片段并将其结果作为字符串返回*/
     public func execute(): String {
-        let byteArrayStream = ByteArrayStream()
+        let byteArrayStream = ByteBuffer()
         let bufferedOutputStream = 
         BufferedOutputStream(byteArrayStream)
         execute(bufferedOutputStream)
         bufferedOutputStream.flush()
-        return String.fromUtf8(byteArrayStream.readToEnd())
+        return String.fromUtf8(readToEnd(byteArrayStream))
     }
 
     /**使用提供的上下文执行此片段；以字符串形式返回其结果
     * 提供的上下文将嵌套在片段的绑定上下文中*/
     public func execute(context: DataModel): String {
-        let byteArrayStream = ByteArrayStream()
+        let byteArrayStream = ByteBuffer()
         let bufferedOutputStream = BufferedOutputStream(byteArrayStream)
         execute(context, bufferedOutputStream)
         bufferedOutputStream.flush()
-        return String.fromUtf8(byteArrayStream.readToEnd())
+        return String.fromUtf8(readToEnd(byteArrayStream))
     }
 
     /**返回对此片段有效的上下文对象。对象的实际类型

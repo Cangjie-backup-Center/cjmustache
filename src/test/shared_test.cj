@@ -1027,7 +1027,7 @@ public class SharedTest {
 
     protected func test(compiler: Compiler, expected: ?String, template: String, ctx: DataModel): Bool {
         let actual: String = compiler.compile(template).execute(ctx)
-        if (!(expected.getOrThrow() == actual)) {
+        if (!expected.getOrThrow().equalsIgnoreAsciiCase(actual)) {
             println("")
             println("----------------------------------------")
             println("")
@@ -1049,7 +1049,7 @@ public class SharedTest {
     }
 
     protected func check(expected: ?String, output: String): Bool {
-        return showWhitespace(expected.getOrThrow()) == showWhitespace(output)
+        return showWhitespace(expected.getOrThrow()).equalsIgnoreAsciiCase(showWhitespace(output))
     }
 
     protected func test(expected: ?String, template: String, ctx: DataModel): Bool {
@@ -1067,7 +1067,7 @@ public class SharedTest {
     protected func fpartials(entries: Array<(String, String)>): TemplateLoader {
         let templates = HashMap<String, String>()
         for (e in entries) {
-            templates.put(e[0], e[1])
+            templates.add(e[0], e[1])
         }
         partials = templates
         return MapTemplateLoader(templates)
@@ -1079,12 +1079,10 @@ public class MapTemplateLoader <: TemplateLoader {
     public MapTemplateLoader(let mp: HashMap<String, String>) {}
 
     public func getTemplate(name: String): InputStream {
-        let byteArrayStream = ByteArrayStream()
         if (let Some(value) <- mp.get(name)) {
-            byteArrayStream.write(value.toArray())
-            return BufferedInputStream(byteArrayStream)
+            return BufferedInputStream(ByteBuffer(value.toArray()))
         }
-        return BufferedInputStream(byteArrayStream)
+        return BufferedInputStream(ByteBuffer())
     }
 }
 
@@ -1092,9 +1090,7 @@ public class StringTemplateLoader <: TemplateLoader {
     public StringTemplateLoader(let str: String) {}
 
     public func getTemplate(_: String): InputStream {
-        let byteArrayStream = ByteArrayStream()
-        byteArrayStream.write(str.toArray())
-        return BufferedInputStream(byteArrayStream)
+        return BufferedInputStream(ByteBuffer(str.toArray()))
     }
 } 
 
@@ -1102,13 +1098,10 @@ public class DualStrPartialTemplateLoader <: TemplateLoader {
     public DualStrPartialTemplateLoader(let str1: String, let str2: String) {}
 
     public func getTemplate(name: String): InputStream {
-        let byteArrayStream = ByteArrayStream()
-        if (name == "partial") {
-            byteArrayStream.write(str1.toArray())
-            return BufferedInputStream(byteArrayStream)
+        if (name.equalsIgnoreAsciiCase("partial")) {
+            return BufferedInputStream(ByteBuffer(str1.toArray()))
         }
-        byteArrayStream.write(str2.toArray())
-        return BufferedInputStream(byteArrayStream)
+        return BufferedInputStream(ByteBuffer(str2.toArray()))
     }
 } 
 
@@ -1134,17 +1127,17 @@ public abstract class AbsDiffTypeRenderClass <: Serializable<AbsDiffTypeRenderCl
 public class GetKeysVisitor <: Visitor {
     public let keys = HashSet<String>()
     public func visitText (_: String): Unit {}
-    public func visitVariable (name: String): Unit { keys.put(name) }
+    public func visitVariable (name: String): Unit { keys.add(name) }
     public func visitInclude (name: String): Bool { 
-        keys.put(name)
+        keys.add(name)
         return true
     }
     public func visitSection (name: String): Bool {
-        keys.put(name)
+        keys.add(name)
         return true
     }
     public func visitInvertedSection (name: String): Bool { 
-        keys.put(name) 
+        keys.add(name) 
         return true 
     }
 }

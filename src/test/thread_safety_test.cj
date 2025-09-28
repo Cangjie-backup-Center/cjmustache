@@ -10,7 +10,6 @@ import std.collection.*
 import std.collection.concurrent.*
 import std.convert.*
 import std.sync.*
-import std.time.*
 
 @Test
 public class ThreadSafetyTest {
@@ -29,10 +28,7 @@ public class ThreadSafetyTest {
         let mon = Monitor()
         let loader = CountLoader()
         let compiler = Mustache.compiler().withLoader(loader)
-        let byteArrayStream = ByteArrayStream()
-        byteArrayStream.write(templateA.toArray())
-        let template = compiler.compile(BufferedInputStream(byteArrayStream))
-
+        let template = compiler.compile(BufferedInputStream(ByteBuffer(templateA.toArray())))
 
         let threads = ArrayList<Future<Unit>>()
         for (_ in 0..nThreads) {
@@ -50,7 +46,7 @@ public class ThreadSafetyTest {
                 }
             }
 
-            threads.append(fut)
+            threads.add(fut)
         }
 
         sleep(Duration.second)
@@ -74,7 +70,7 @@ public class ThreadSafetyTest {
         let q = NonBlockingQueue<Exception>()
 
         let m = HashMap<String, String>()
-        m.put("stuff", "Foo")
+        m.add("stuff", "Foo")
         let threads = ArrayList<Future<Unit>>()
 
         for (_ in 0..100) {
@@ -86,7 +82,7 @@ public class ThreadSafetyTest {
                     let skipBool = q.enqueue(e)
                 }
             }
-            threads.append(fut)
+            threads.add(fut)
         }
 
         for (f in threads) {
@@ -103,12 +99,10 @@ public class CountLoader <: TemplateLoader {
 
     public func getTemplate(name: String): InputStream {
         counter.fetchAdd(1)
-        if (!("templateB" == name)) {
+        if (!"templateB".equalsIgnoreAsciiCase(name)) {
             throw IllegalArgumentException()
         }
-        let byteArrayStream = ByteArrayStream()
-        byteArrayStream.write(ThreadSafetyTest.templateB.toArray())
-        return BufferedInputStream(byteArrayStream)
+        return BufferedInputStream(ByteBuffer(ThreadSafetyTest.templateB.toArray()))
     }
 
     public func count(): Int64 {
@@ -120,12 +114,10 @@ public class AtomicTemplateLoader <: TemplateLoader {
     public AtomicTemplateLoader(let loadCount: AtomicInt64) {}
 
     public override func getTemplate(name: String): InputStream {
-        let byteArrayStream = ByteArrayStream()
-        byteArrayStream.write("Hello".toArray())
-        if ("partial" == name) {
+        if ("partial".equalsIgnoreAsciiCase(name)) {
             loadCount.fetchAdd(1)
             sleep(Duration.second)
-            return BufferedInputStream(byteArrayStream)
+            return BufferedInputStream(ByteBuffer("Hello".toArray()))
         }
         throw IOException(name)
     }

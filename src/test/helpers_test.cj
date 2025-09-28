@@ -22,18 +22,18 @@ public class helpersTest {
 
     @TestCase
     public func appendOrWriteTest2() {
-        let bf = ByteArrayStream()
+        let bf = ByteBuffer()
         let bufferOutputStream = BufferedOutputStream(bf)
         bufferOutputStream.write(str1.toArray())
         appendOrWrite(None, bufferOutputStream, str2)
 
         bufferOutputStream.flush()
-        @Expect(String.fromUtf8(bf.readToEnd()), 
+        @Expect(String.fromUtf8(readToEnd(bf)), 
         "Hello, World")
 
         appendOrWrite(None, bufferOutputStream, str3, 0, 4)
         bufferOutputStream.flush()
-        @Expect(String.fromUtf8(bf.readToEnd()), 
+        @Expect(String.fromUtf8(readToEnd(bf)), 
         "!!!!")
     }
 }

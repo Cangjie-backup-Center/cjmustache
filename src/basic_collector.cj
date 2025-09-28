@@ -49,7 +49,7 @@ protected class MapVariableFetcher <: VariableFetcher {
             case mpCtx: DataModelStruct => mpCtx
                         let dmMp = HashMap<String, DataModel>()
                         mpCtx.getFields() |> forEach<Field>{ field: Field => 
-                            dmMp.put(field.getName(), field.getData())
+                            dmMp.add(field.getName(), field.getData())
                         }
                         dmMp
             case _ => return Template.NO_FETCHER_FOUND.serialize()

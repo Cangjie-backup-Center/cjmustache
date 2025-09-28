@@ -6,13 +6,10 @@ import std.unittest.*
 import std.unittest.testmacro.*
 import std.fs.*
 import std.collection.*
-import serialization.serialization.*
-import encoding.json.*
 
 @Test
 public class CompileTest {
-    @TestCase 
-    func compileHtmlTEst() {
+    @TestCase func compileTEst() {
         try {
             let compile = Mustache.compiler().compile(
                 convertEscapes(String.fromUtf8(

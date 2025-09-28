@@ -32,7 +32,7 @@ public func appendOrWrite(
 public func isNO_FETCHER_FOUND(data: DataModel): Bool {
     return match (data) {
         case str: DataModelString => str
-                    str.getValue() == Template.NO_FETCHER_FOUND
+                    str.getValue().equalsIgnoreAsciiCase(Template.NO_FETCHER_FOUND)
         case _ => false
     }
 }

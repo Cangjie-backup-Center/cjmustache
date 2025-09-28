@@ -12,32 +12,33 @@ public class Mustache {
     protected static let NO_CHAR: Rune = r'\u{0000}'
 
     /** FAILING_LOADER 是一种默认配置。如果用户或系统没有正确设置模板加载器，
-     * 就会使用这个默认的 "失败" 加载器，从而在执行时提醒用户模板加载未配置。
-     */
-    protected static let FAILING_LOADER: TemplateLoader = DefenseTemplateLoader()
+    * 就会使用这个默认的 "失败" 加载器，从而在执行时提醒用户模板加载未配置。
+    */
+    protected static let FAILING_LOADER: TemplateLoader
+                            = DefenseTemplateLoader()
 
-    protected static let DEFAULT_FORMATTER: Formatter = DefaultFormatter()
+    protected static let DEFAULT_FORMATTER: Formatter
+                            = DefaultFormatter()
 
     public static func compiler() {
-        Compiler(
-            false /*standardsMode=*/ ,
-            false /*strictSections=*/ ,
-            None /*nullValue=*/ ,
-            false /*missingIsNull=*/ ,
-            false /*emptyStringIsFalse=*/ ,
-            false /*zeroIsFalse=*/ ,
-            DEFAULT_FORMATTER,
-            Escapers.HTML,
-            FAILING_LOADER,
-            DefaultCollector(),
-            Delims()
-        )
+        Compiler(false /*standardsMode=*/,
+                 false /*strictSections=*/, 
+                 None  /*nullValue=*/,
+                 false /*missingIsNull=*/, 
+                 false/*emptyStringIsFalse=*/,
+                 false/*zeroIsFalse=*/, 
+                 DEFAULT_FORMATTER, 
+                 Escapers.HTML, 
+                 FAILING_LOADER,
+                 DefaultCollector(), 
+                 Delims())
     }
 
     /**
-     * 将提供的模板编译为可重复执行的中间形式。
-     */
-    protected static func compile(source: InputStream, compiler: Compiler): Template {
+    * 将提供的模板编译为可重复执行的中间形式。
+    */
+    protected static func compile(
+        source: InputStream, compiler: Compiler): Template {
         let accum = Parser(compiler).parse(source)
         return Template(trim(accum.finish(), true), compiler)
     }
@@ -47,85 +48,91 @@ public class Mustache {
     /* 用于修剪 Mustache 模板解析过程中不同片段的空白字符，确保某些标签（如部分、块、注释）如果单独占一行时，
      * 可以正确移除前后多余的空白。这种空白修剪通常在模板中改善代码的可读性或生成更干净的输出。 */
     /* @top: 表示当前模板片段是否是顶级片段。如果为 true，表示当前片段集在最外层的模板中，允许进行特殊的空白处理 */
-    protected static func trim(segs: Array<Segment>, top: Bool): Array<Segment> {
+    protected static func trim(
+        segs: Array<Segment>, top: Bool): Array<Segment> {
         let ll = segs.size
         for (ii in 0..ll) {
             let seg: Segment = segs[ii]
-            var pseg: ?Segment /* 表示当前片段的前一个片段（如果有） */
-            var nseg: ?Segment /* 表示当前片段的下一个片段（如果有） */
-            if (ii > 0) {
-                pseg = segs[ii - 1]
-            } else {
-                pseg = None
-            }
-            if (ii < ll - 1) {
-                nseg = segs[ii + 1]
-            } else {
-                nseg = None
-            }
+            var pseg: ?Segment  /* 表示当前片段的前一个片段（如果有） */
+            var nseg: ?Segment  /* 表示当前片段的下一个片段（如果有） */
+            if (ii > 0) { pseg = segs[ii-1] }
+            else { pseg = None }
+            if (ii < ll - 1) { nseg = segs[ii+1] }
+            else { nseg = None }
 
             var prev: ?StringSegment = None
             var next: ?StringSegment = None
-            if (pseg.isSome() && pseg.getOrThrow() is StringSegment) {
+            if (pseg.isSome() &&
+                pseg.getOrThrow() is StringSegment) {
                 prev = (pseg.getOrThrow() as StringSegment)
-            } else {
-                prev = None
-            }
-            if (nseg.isSome() && nseg.getOrThrow() is StringSegment) {
+            } else { prev = None }
+            if (nseg.isSome() && 
+                nseg.getOrThrow() is StringSegment) {
                 next = (nseg.getOrThrow() as StringSegment)
-            } else {
-                next = None
-            }
+            } else { next = None }
 
-            let prevBlank: Bool = ((pseg.isNone() && top) || (!prev.isNone() && prev.getOrThrow().trailsBlank()))
-            let nextBlank: Bool = ((nseg.isNone() && top) || (!next.isNone() && next.getOrThrow().leadsBlank()))
+            let prevBlank: Bool = ((pseg.isNone() && top) ||
+                (!prev.isNone() &&
+                  prev.getOrThrow().trailsBlank()))
+            let nextBlank: Bool = ((nseg.isNone() && top) || 
+                (!next.isNone() && 
+                  next.getOrThrow().leadsBlank()))
 
-            if (seg is StandaloneSection) { /* 处理独立的 Section 段 */
-                let sect = (seg as StandaloneSection).getOrThrow()
+            if (seg is StandaloneSection) {  /* 处理独立的 Section 段 */
+                let sect = (seg as StandaloneSection).
+                getOrThrow()
                 var indent: String = ""
                 if (prevBlank && sect.firstLeadsBlank()) {
                     if (let Some(rprev) <- prev) {
                         indent = rprev.indent()
-                        segs[ii - 1] = rprev.trimTrailBlank()
+                        segs[ii-1] = rprev.trimTrailBlank()
                     }
                     sect.trimFirstBlank()
                     sect.standaloneStart(true)
-                }
+                } 
                 if (nextBlank && sect.lastTrailsBlank()) {
                     sect.trimLastBlank()
                     if (let Some(rnext) <- next) {
-                        segs[ii + 1] = rnext.trimLeadBlank()
+                        segs[ii+1] = rnext.trimLeadBlank()
                     }
                     sect.standaloneEnd(true)
                 }
-                if (sect is ParentTemplateSegment && !(indent == "")) {
-                    segs[ii] = (sect as ParentTemplateSegment).getOrThrow().indent(indent, pseg.isNone(), nseg.isNone())
+                if (sect is ParentTemplateSegment && 
+                    !indent.equalsIgnoreAsciiCase("")) {
+                    segs[ii] = 
+                        (sect as ParentTemplateSegment).getOrThrow().
+                        indent(indent, pseg.isNone(), nseg.isNone())
                 }
-            }
-                /* 对于部分模板片段 IncludedTemplateSegment，如果前后是空白，且片段独立存在一行，
-                 * 则将其设置为独立片段，并根据前一个片段的缩进进行缩进调整 */
-                else if (seg is IncludedTemplateSegment) {
-                var include = (seg as IncludedTemplateSegment).getOrThrow()
+            } 
+            /* 对于部分模板片段 IncludedTemplateSegment，如果前后是空白，且片段独立存在一行，
+             * 则将其设置为独立片段，并根据前一个片段的缩进进行缩进调整 */
+            else if (seg is IncludedTemplateSegment) {
+                var include = 
+                (seg as IncludedTemplateSegment).getOrThrow()
                 if (!prev.isNone() && prevBlank && nextBlank) {
                     let indent: String = prev.getOrThrow().indent()
                     include._standalone = true
-                    if (!(indent == "")) {
-                        include = include.indent(indent, pseg.isNone(), nseg.isNone())
-                        segs[ii] = include
+                    if (!indent.equalsIgnoreAsciiCase("")) {
+                        include = include.indent(
+                            indent, pseg.isNone(), nseg.isNone())
+                        segs[ii] = include 
                     }
                     if (next.isSome()) {
-                        segs[ii + 1] = (next.getOrThrow().trimLeadBlank())
+                        segs[ii+1] = 
+                        (next.getOrThrow().trimLeadBlank())
                     }
                 }
             }
-                /* 对于注释或非输出片段（FauxSegment），如果前后片段都是空白字符，则将前后的空白字符修剪掉 */
-                else if (seg is FauxSegment) { /* 处理注释或其他非打印片段 */
+            /* 对于注释或非输出片段（FauxSegment），如果前后片段都是空白字符，则将前后的空白字符修剪掉 */
+            else if (seg is FauxSegment) { /* 处理注释或其他非打印片段 */
                 if (prevBlank && nextBlank) {
-                    if (pseg.isSome()) {
-                        segs[ii - 1] = prev.getOrThrow().trimTrailBlank()
+                    if (pseg.isSome()) { 
+                        segs[ii-1] = prev.
+                        getOrThrow().trimTrailBlank() 
                     }
-                    if (nseg.isSome()) {
-                        segs[ii + 1] = next.getOrThrow().trimLeadBlank()
+                    if (nseg.isSome()) { 
+                        segs[ii+1] = next.
+                        getOrThrow().trimLeadBlank() 
                     }
                 }
             }
@@ -135,16 +142,18 @@ public class Mustache {
     }
 
     /** 按缩进方式缩进段
-     * @param _segs : 如果需要缩进，则要克隆段
-     * @param indent : 用于缩进的空间
-     * @param _first : 是否在第一段上附加缩进
-     * @param _last ： 是否在最后一段最后一个空换行符（后面没有字符）上附加缩进
-     * @return ：克隆片段（如果更改）
-     */
-    protected static func indentSegs(_segs: Array<Segment>, indent: String, _first: Bool, _last: Bool): Array<Segment> {
+      * @param _segs : 如果需要缩进，则要克隆段
+      * @param indent : 用于缩进的空间
+      * @param _first : 是否在第一段上附加缩进
+      * @param _last ： 是否在最后一段最后一个空换行符（后面没有字符）上附加缩进
+      * @return ：克隆片段（如果更改）
+      */
+    protected static func indentSegs(
+        _segs: Array<Segment>, indent: String, 
+        _first: Bool, _last: Bool): Array<Segment> {
         /* 与trim不同，此方法在段发生更改时克隆段，因此必须处理返回值；
          * 可以使用对返回的简单身份检查来确定是否存在change_last:Bool */
-        if (indent == "") {
+        if (indent.equalsIgnoreAsciiCase("")) {
             return _segs
         }
 
@@ -155,17 +164,17 @@ public class Mustache {
         for (i in 0.._segs.size) {
             let seg: Segment = _segs[i]
 
-            let pseg: ?Segment = if (i > 0) {
-                _segs[i - 1]
-            } else {
-                None
-            }
+            let pseg: ?Segment = if (i > 0) { 
+                                    _segs[i-1]
+                                } else { 
+                                    None
+                                }
 
             let nseg: ?Segment = if (i < length - 1) {
-                _segs[i + 1]
-            } else {
-                None
-            }
+                                    _segs[i+1]
+                                } else {
+                                    None 
+                                }
 
             var copy: Segment
             if (seg is AbstractSectionSegment) {
@@ -189,6 +198,7 @@ public class Mustache {
                     last = true
                 }
                 copy = abseg.indent(indent, first, last)
+
             } else if (seg is StringSegment) {
                 var first: Bool
                 var last: Bool
@@ -203,8 +213,11 @@ public class Mustache {
 
                 if (nseg.isNone()) {
                     last = _last
-                } else if (nseg.getOrThrow() is AbstractSectionSegment) {
-                    let abseg = (nseg.getOrThrow() as AbstractSectionSegment).getOrThrow()
+                } else if (nseg.getOrThrow() is
+                    AbstractSectionSegment) {
+                    let abseg = (
+                        nseg.getOrThrow() as 
+                            AbstractSectionSegment).getOrThrow()
                     last = !abseg.isStandaloneStart()
                 } else if (nseg.getOrThrow().isStandalone()) {
                     last = false
@@ -213,6 +226,7 @@ public class Mustache {
                 }
 
                 copy = seg.indent(indent, first, last)
+
             } else if (seg is IncludedTemplateSegment) {
                 if (seg.isStandalone()) {
                     var last: Bool
@@ -235,7 +249,7 @@ public class Mustache {
             if (!refEq(seg, copy)) {
                 changed = true
             }
-            copySegs.append(copy)
+            copySegs.add(copy)
         }
 
         if (changed) {
@@ -245,10 +259,8 @@ public class Mustache {
         return _segs
     }
 
-    protected static func replaceBlockSegs(
-        _segs: Array<Segment>,
-        blocks: HashMap<String, BlockSegment>
-    ): Array<Segment> {
+    protected static func replaceBlockSegs(_segs: Array<Segment>, 
+        blocks: HashMap<String, BlockSegment>): Array<Segment> {
         if (blocks.isEmpty()) {
             return _segs
         }
@@ -261,7 +273,8 @@ public class Mustache {
             var copy: Segment
 
             if (seg is BlockReplaceable) {
-                copy = (seg as BlockReplaceable).getOrThrow().replaceBlocks(blocks)
+                copy = (seg as BlockReplaceable).
+                    getOrThrow().replaceBlocks(blocks)
             } else {
                 copy = seg
             }
@@ -269,7 +282,7 @@ public class Mustache {
             if (!refEq(seg, copy)) {
                 changed = true
             }
-            copySegs.append(copy)
+            copySegs.add(copy)
         }
         if (changed) {
             return copySegs.toArray()
@@ -277,16 +290,18 @@ public class Mustache {
         return _segs
     }
 
-    protected static func restoreStartTag(text: StringBuilder, starts: Delims): Unit {
+    protected static func restoreStartTag(
+        text: StringBuilder, starts: Delims): Unit {
         text.insert(0, starts.start1)
         if (starts.start2 != NO_CHAR) {
             text.insert(1, starts.start2)
         }
     }
-
+    
     //this method was never called, what was my intention here?
     protected static func allowsWhitespace(typeRune: Rune): Bool {
-        return ((typeRune == r'=' /* change delimiters */ ) || (typeRune == r'!' /* comment */ ))
+        return ((typeRune == r'=' /* change delimiters */) ||
+               (typeRune == r'!' /* comment */))
     }
 
     protected static let TEXT: Int64 = 0
@@ -314,40 +329,40 @@ public class Compiler {
     public let _standardsMode: Bool
 
     /** 当节解析为缺少值时是否抛出异常。如果为false，
-     * 则简单地省略该部分（或在反向部分的情况下包含该部分）。
-     * 如果为true，则抛出{@code MustacheException}
-     */
+      * 则简单地省略该部分（或在反向部分的情况下包含该部分）。
+      * 如果为true，则抛出{@code MustacheException}
+      */
     public let _strictSections: Bool
 
     /** 当变量解析为null时使用的值。如果此值为null（这是默认的null值），
-     * 则将引发异常。如果{@link#missingIsNull}也为true，则当无法解析
-     * 变量时将使用此值。
-     *
-     * <p>如果nullValue包含子字符串{@code{{name}}}，
-     * 则该子字符串将被变量的名称替换。例如，如果null值为{@code？{{name}}？}
-     * 缺少的变量是{@code foo}，那么将使用字符串{@code？foo？}</p>
-     */
+      * 则将引发异常。如果{@link#missingIsNull}也为true，则当无法解析
+      * 变量时将使用此值。
+      *
+      * <p>如果nullValue包含子字符串{@code{{name}}}，
+      * 则该子字符串将被变量的名称替换。例如，如果null值为{@code？{{name}}？}
+      * 缺少的变量是{@code foo}，那么将使用字符串{@code？foo？}</p>
+      */
     public let _nullValue: ?String
 
     /** 如果此值为true，则缺失的变量将被视为返回null的变量。
-     * 假设将｛@link#nullValue｝配置为非空值，则将使用
-     * ｛@link#nullValue｝代替它们
-     */
+      * 假设将｛@link#nullValue｝配置为非空值，则将使用
+      *｛@link#nullValue｝代替它们
+      */
     public let _missingIsNull: Bool
 
     /** 如果此值为true，则空字符串将被视为false值，
-     * 就像在JavaScript mustache实现中一样。默认值为false
-     */
+      * 就像在JavaScript mustache实现中一样。默认值为false
+      */
     public let _emptyStringIsFalse: Bool
 
     /** 如果此值为true，则零将被视为false值，
-     * 就像JavaScript mustache实现中一样。默认值为false
-     */
+      * 就像JavaScript mustache实现中一样。默认值为false
+      */
     public let _zeroIsFalse: Bool
 
     /** 处理渲染模板时将对象转换为字符串。
-     * 默认格式化程序使用{@link String#valueOf}
-     */
+      * 默认格式化程序使用{@link String#valueOf}
+      */
     public let _formatter: Formatter
 
     /** 处理替换文本中的转义字符 */
@@ -362,37 +377,38 @@ public class Compiler {
     /** 使用此编译器编译的模板中默认使用的定界符 */
     public let _delims: Delims
 
-    protected init(_standardsMode: Bool, _strictSections: Bool, _nullValue: ?String, _missingIsNull: Bool,
-        _emptyStringIsFalse: Bool, _zeroIsFalse: Bool, _formatter: Formatter, _escaper: Escaper,
-        _loader: TemplateLoader, _collector: Collector, _delims: Delims) {
-        this._standardsMode = _standardsMode
-        this._strictSections = _strictSections
-        this._nullValue = _nullValue
-        this._missingIsNull = _missingIsNull
-        this._emptyStringIsFalse = _emptyStringIsFalse
-        this._zeroIsFalse = _zeroIsFalse
-        this._formatter = _formatter
-        this._escaper = _escaper
-        this._loader = _loader
-        this._collector = _collector
-        this._delims = _delims
+    protected init(_standardsMode: Bool, _strictSections: Bool, _nullValue: ?String,
+                   _missingIsNull: Bool, _emptyStringIsFalse: Bool, _zeroIsFalse: Bool, 
+                   _formatter: Formatter, _escaper: Escaper, _loader: TemplateLoader,
+                   _collector: Collector, _delims: Delims) {
+        this._standardsMode = _standardsMode;
+        this._strictSections = _strictSections;
+        this._nullValue = _nullValue;
+        this._missingIsNull = _missingIsNull;
+        this._emptyStringIsFalse = _emptyStringIsFalse;
+        this._zeroIsFalse = _zeroIsFalse;
+        this._formatter = _formatter;
+        this._escaper = _escaper;
+        this._loader = _loader;
+        this._collector = _collector;
+        this._delims = _delims;
     }
 
-    /** 将提供的模板编译为可重复执行的中间形式 */
+    /** 将提供的模板编译为可重复执行的中间形式 */ 
     public func compile(source: InputStream): Template {
         return Mustache.compile(source, this)
     }
 
     // /** 将提供的模板编译为可重复执行的中间形式 */
     public func compile(template: String): Template {
-        let byteArrayStream = ByteArrayStream()
+        let byteArrayStream = ByteBuffer()
         byteArrayStream.write(template.toArray())
         let temp = BufferedInputStream(byteArrayStream)
         return compile(temp)
     }
 
     /** 返回一个编译器，默认情况下该编译器可以转义HTML，也可以不转义HTML。
-     * 注意：这是通过{@link#withEscaper}设置的任何擒纵器 */
+      * 注意：这是通过{@link#withEscaper}设置的任何擒纵器 */
     public func escapeHTML(escapeHTML: Bool): Compiler {
         if (escapeHTML) {
             return withEscaper(Escapers.HTML)
@@ -401,104 +417,111 @@ public class Compiler {
     }
 
     /** 返回一个使用或不使用标准模式的编译器。标准模式禁用非标准cjmustache扩展，
-     * 如在父上下文中查找缺失的名称 */
+      * 如在父上下文中查找缺失的名称 */
     public func standardsMode(_standardsMode: Bool): Compiler {
-        return Compiler(_standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector,
-            this._delims)
+        return Compiler(_standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, this._escaper, this._loader, this._collector,
+                        this._delims)
     }
 
+
     /** 返回一个编译器，当节引用缺少的值（｛@code true｝）或将缺少的值视为｛@code false｝
-     * （默认值为｛@codefalse｝）时，该编译器会抛出异常 */
+      *（默认值为｛@codefalse｝）时，该编译器会抛出异常 */
     public func strictSections(_strictSections: Bool): Compiler {
-        return Compiler(this._standardsMode, _strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector,
-            this._delims)
+        return Compiler(this._standardsMode, _strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, this._escaper, this._loader, this._collector,
+                        this._delims)
     }
 
     /** 返回一个编译器，该编译器将使用给定的值来处理任何缺失的变量，
-     * 或者解析为null。这类似于{@link#nullValue}，
-     * 不同的是它为丢失的键和返回null值的现有键返回提供的默认值 */
+      * 或者解析为null。这类似于{@link#nullValue}，
+      * 不同的是它为丢失的键和返回null值的现有键返回提供的默认值 */
     public func defaultValue(_defaultValue: String): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, _defaultValue, true, this._emptyStringIsFalse,
-            this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector, this._delims)
+        return Compiler(this._standardsMode, this._strictSections, _defaultValue, true,
+                        this._emptyStringIsFalse, this._zeroIsFalse, this._formatter,
+                        this._escaper, this._loader, this._collector, this._delims)
     }
+    
 
     /** 返回一个编译器，该编译器将对解析为null的任何变量使用给定值，
-     * 但仍将对找不到访问器的变量引发异常。这类似于{@link#defaultValue}，]
-     * 只是它区分了缺失的访问器和存在但返回null的访问器
-     * <ul>
-     * <li>在将cj对象用作上下文的情况下，如果没有字段或方法可以作为变量，则会引发异常</li>
-     * <li>在将{@link Map}用作上下文的情况下，如果映射不包含变量的映射，
-     * 将引发异常。如果映射包含映射到｛@code null｝的映射，则使用
-     * ｛@code nullValue｝</li></ul>
-     */
+      * 但仍将对找不到访问器的变量引发异常。这类似于{@link#defaultValue}，]
+      * 只是它区分了缺失的访问器和存在但返回null的访问器
+      * <ul>
+      * <li>在将cj对象用作上下文的情况下，如果没有字段或方法可以作为变量，则会引发异常</li>
+      * <li>在将{@link Map}用作上下文的情况下，如果映射不包含变量的映射，
+      * 将引发异常。如果映射包含映射到｛@code null｝的映射，则使用
+      *｛@code nullValue｝</li></ul>
+      */
     public func nullValue(_nullValue: String): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, _nullValue, false, this._emptyStringIsFalse,
-            this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector, this._delims)
+        return Compiler(this._standardsMode, this._strictSections, _nullValue, false,
+                        this._emptyStringIsFalse, this._zeroIsFalse, this._formatter,
+                        this._escaper, this._loader, this._collector, this._delims)
     }
 
     /** 返回一个编译器，如果参数为true，则将空字符串视为false值 */
     public func emptyStringIsFalse(_emptyStringIsFalse: Bool): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            _emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector,
-            this._delims)
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, _emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, this._escaper, this._loader, this._collector,
+                        this._delims)
     }
 
     /** 返回一个编译器，如果参数为真，则将零视为假值 */
-    public func zeroIsFalse(_zeroIsFalse: Bool): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, _zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector,
-            this._delims)
+    public func zeroIsFalse(_zeroIsFalse: Bool):  Compiler {
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, _zeroIsFalse,
+                        this._formatter, this._escaper, this._loader, this._collector,
+                        this._delims)
     }
 
     /** 配置用于将对象转换为字符串｛@link格式化程序｝ */
     public func withFormatter(_formatter: Formatter): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, _formatter, this._escaper, this._loader, this._collector,
-            this._delims)
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        _formatter, this._escaper, this._loader, this._collector, this._delims)
     }
 
     /** 配置用于转义替换文本的｛@link Escaper｝*/
     public func withEscaper(_escaper: Escaper): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, _escaper, this._loader, this._collector,
-            this._delims)
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, _escaper, this._loader, this._collector, this._delims)
     }
 
     /** 返回一个编译器，该编译器被配置为使用提供的模板加载器来处理部分 */
     public func withLoader(_loader: TemplateLoader): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, _loader, this._collector,
-            this._delims)
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, this._escaper, _loader, this._collector, this._delims)
     }
 
     /** 返回配置为使用提供的收集器的编译器 */
     public func withCollector(_collector: Collector): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, this._loader, _collector,
-            this._delims)
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                        this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                        this._formatter, this._escaper, this._loader, _collector, this._delims)
     }
 
     /** 返回一个编译器，该编译器被配置为使用提供的delims作为
-     * 默认分隔符@param delims是一个形式为{@code AB CD}或{@code a D}的字符串，
-     * 其中a和B是打开的delims，C和D是关闭的delims */
+      * 默认分隔符@param delims是一个形式为{@code AB CD}或{@code a D}的字符串，
+      * 其中a和B是打开的delims，C和D是关闭的delims */
     public func withDelims(_delims: String): Compiler {
-        return Compiler(this._standardsMode, this._strictSections, this._nullValue, this._missingIsNull,
-            this._emptyStringIsFalse, this._zeroIsFalse, this._formatter, this._escaper, this._loader, this._collector,
-            Delims().updateDelims(_delims))
+        return Compiler(this._standardsMode, this._strictSections, this._nullValue,
+                                this._missingIsNull, this._emptyStringIsFalse, this._zeroIsFalse,
+                                this._formatter, this._escaper, this._loader, this._collector,
+                                Delims().updateDelims(_delims))
     }
 
     /** 返回在模板中用于空值属性{@code-name}的值。有关更多详细信息，请参阅｛@link#nullValue｝ */
     public func computerNullValue(name: String): DataModel {
-        if (_nullValue.isNone()) {
-            return DataModelNull()
-        }
+        if (_nullValue.isNone()) { return DataModelNull() }
         return _nullValue.getOrThrow().replace("{{name}}", name).serialize()
     }
 
     /** 如果提供的值为“false”，则返回true。如果{@link#emptyStringIsFalse}为true，
-     * 则空字符串被视为false。如果{@link#zeroIsFalse}为真，则零值被视为假 */
+      * 则空字符串被视为false。如果{@link#zeroIsFalse}为真，则零值被视为假 */
     public func isFalsey(value: DataModel): Bool {
         if (value is DataModelStruct) {
             return false
@@ -511,6 +534,7 @@ public class Compiler {
 
     /** 替换“.equals（value）”。例如，长度为0的值不能为空 */
     public func isEmptyCharSequence(value: DataModel): Bool {
+        
         if (let Some(strValue) <- (value as DataModelString)) {
             return strValue.getValue().size == 0
         }
@@ -520,7 +544,7 @@ public class Compiler {
 
     /** 使用此编译器配置的模板加载器加载和编译模板{@code-name}。
      * 请注意，这没有缓存：如果调用者希望多次使用加载的模板，则应缓存该模板。
-     * @return : 编译模版
+     * @return : 编译模版 
      * @throws : MustacheException 如果模板无法加载（由于I/O异常）或编译（由于语法错误等）。
      */
     public func loadTemplate(name: String): Template {
@@ -529,11 +553,13 @@ public class Compiler {
             tin = _loader.getTemplate(name)
             return compile(tin.getOrThrow())
         } catch (e: Exception) {
-            throw MustacheException("Unable to load template: " + name, e)
-        }
+                throw MustacheException(
+                    "Unable to load template: " + name, e)
+        } 
     }
 }
 
+/** 手卷解析器；呼！ */
 protected class Parser {
     protected let delims: Delims
     protected let text = StringBuilder()
@@ -694,7 +720,7 @@ open protected class Accumlator {
     /* 将普通文本添加为模板片段。这个方法会将 StringBuilder 中的内容转化为 StringSegment 对象，存储在 _segs 列表中 */
     public func addTextSegment(text: StringBuilder): Unit {
         if (text.size > 0) {
-            _segs.append(StringSegment(text.toString(),
+            _segs.add(StringSegment(text.toString(),
                         _segs.isEmpty() && _topLevel))
             text.reset(capacity: Some(1))
         }
@@ -737,7 +763,7 @@ open protected class Accumlator {
             case r'/' => requireNoNewlines(tag, tagLine)
                     return addCloseSectionSegment(nextTags, tagLine)
 
-            case r'!' => _segs.append(FauxSegment())
+            case r'!' => _segs.add(FauxSegment())
                     return this
 
             case r'&' => requireNoNewlines(tag, tagLine)
@@ -746,14 +772,14 @@ open protected class Accumlator {
                     return this
 
             case _ => requireNoNewlines(tag, tagLine)
-                    _segs.append(VariableSegment(
+                    _segs.add(VariableSegment(
                         tag, tagLine, _comp._formatter, _comp._escaper))
                     return this
         }
     }
 
     public func addFauxSegment(): Unit {
-        _segs.append(FauxSegment())
+        _segs.add(FauxSegment())
     }
 
     open public func finish(): Array<Segment> {
@@ -778,7 +804,7 @@ open protected class Accumlator {
 
     protected static func requireSameName(
         name1: String, name2: String, line: Int64): Unit {
-        if (!(name1 == name2)) {
+        if (!name1.equalsIgnoreAsciiCase(name2)) {
             MustacheParseException(
                 "Section close tag with mismatched open tag '" +
                     name2 + "' != '" + name1 + "'", line)
@@ -787,99 +813,91 @@ open protected class Accumlator {
 }
 
 protected class SectionSegmentAccumlator <: Accumlator {
-    public SectionSegmentAccumlator(compiler: Compiler, topLevel: Bool, let outer: Accumlator, let tag1: String,
-        let tagLine: Int64) {
+    public SectionSegmentAccumlator(compiler: Compiler, topLevel: Bool,
+            let outer: Accumlator,  let tag1: String, 
+            let tagLine: Int64) {
         super(compiler, topLevel)
     }
 
     public override func finish(): Array<Segment> {
-        throw MustacheParseException("Section missing close tag '" + tag1 + "'", tagLine)
+        throw MustacheParseException(
+            "Section missing close tag '" + tag1 + "'", tagLine)
     }
 
-    protected override func addCloseSectionSegment(
-        itag: String,
-        line: Int64
-    ): Accumlator {
+    protected override func addCloseSectionSegment(itag: String,
+        line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(SectionSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(SectionSegment(_comp, itag, super.finish(), tagLine))
         return outer
     }
 }
 
 protected class ParentTemplateSegmentAccumlator <: Accumlator {
-    public ParentTemplateSegmentAccumlator(compiler: Compiler, topLevel: Bool, let outer: Accumlator, let tag1: String,
-        let tagLine: Int64) {
+    public ParentTemplateSegmentAccumlator(compiler: Compiler, topLevel: Bool,
+            let outer: Accumlator,  let tag1: String, let tagLine: Int64) {
         super(compiler, topLevel)
     }
 
     public override func finish(): Array<Segment> {
-        throw MustacheParseException(
-            "Parent missing close tag '" + tag1 + "'",
-            tagLine
-        )
+        throw MustacheParseException("Parent missing close tag '" +
+                tag1 + "'", tagLine)
     }
 
-    protected override func addCloseSectionSegment(
-        itag: String,
-        line: Int64
-    ): Accumlator {
+    protected override func addCloseSectionSegment(itag: String,
+        line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(ParentTemplateSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(ParentTemplateSegment(
+            _comp, itag, super.finish(), tagLine))
         return outer
     }
 }
 
 protected class BlockSegmentAccumlator <: Accumlator {
-    public BlockSegmentAccumlator(compiler: Compiler, topLevel: Bool, let outer: Accumlator, let tag1: String,
-        let tagLine: Int64) {
+    public BlockSegmentAccumlator(compiler: Compiler, topLevel: Bool,
+            let outer: Accumlator,  let tag1: String, let tagLine: Int64) {
         super(compiler, topLevel)
     }
 
     public override func finish(): Array<Segment> {
-        throw MustacheParseException(
-            "Block missing close tag '" + tag1 + "'",
-            tagLine
-        )
-    }
+        throw MustacheParseException("Block missing close tag '" +
+            tag1 + "'", tagLine)
+    } 
 
-    protected override func addCloseSectionSegment(
-        itag: String,
-        line: Int64
-    ): Accumlator {
+    protected override func addCloseSectionSegment(itag: String, 
+        line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(BlockSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(BlockSegment(_comp, itag, super.finish(), tagLine))
         return outer
     }
 }
 
 protected class InvertedSegmentAccumlator <: Accumlator {
-    public InvertedSegmentAccumlator(compiler: Compiler, topLevel: Bool, let outer: Accumlator, let tag1: String,
-        let tagLine: Int64) {
+    public InvertedSegmentAccumlator(compiler: Compiler, topLevel: Bool, 
+            let outer: Accumlator,  let tag1: String, let tagLine: Int64) {
         super(compiler, topLevel)
     }
 
     public override func finish(): Array<Segment> {
         throw MustacheParseException(
-            "Inverted section missing close tag '" + tag1 + "'",
-            tagLine
-        )
+            "Inverted section missing close tag '" +
+            tag1 + "'", tagLine)
     }
 
-    protected override func addCloseSectionSegment(
-        itag: String,
-        line: Int64
-    ): Accumlator {
+    protected override func addCloseSectionSegment(itag: String,
+         line: Int64): Accumlator {
         Accumlator.requireSameName(tag1, itag, line)
-        outer._segs.append(InvertedSegment(_comp, itag, super.finish(), tagLine))
+        outer._segs.add(
+            InvertedSegment(_comp, itag, 
+            super.finish(), tagLine))
         return outer
     }
 }
 
 public class Delims {
-    public var start1 = r'{'
-    public var end1 = r'}'
+    public var start1 = r'{'  
+    public var end1   = r'}'
     public var start2 = r'{'
-    public var end2 = r'}'
+    public var end2   = r'}'
 
     public func isStaches(): Bool {
         start1 == r'{' && start2 == r'{' && end1 == r'}' && end2 == r'}'
@@ -888,38 +906,36 @@ public class Delims {
     public func updateDelims(dtext: String): Delims {
         var delims: Array<String> = dtext.split(" ")
         if (delims.size != 2) {
-            throw MustacheException(errmsg(dtext))
+            throw MustacheException(errmsg(dtext)) 
         }
 
         let delimsStr1 = delims[0]
         let delimsStr2 = delims[1]
         let tempDelims1 = delimsStr1.toRuneArray()
         let tempDelims2 = delimsStr2.toRuneArray()
-
+        
         match (delims[0].size) {
-            case 1 =>
-                start1 = tempDelims1[0]
-                start2 = Mustache.NO_CHAR
-            case 2 =>
-                start1 = tempDelims1[0]
-                start2 = tempDelims1[1]
+            case 1 => start1 = tempDelims1[0]
+                      start2 = Mustache.NO_CHAR
+            case 2 => start1 = tempDelims1[0]
+                      start2 = tempDelims1[1]
             case _ => throw MustacheException(errmsg(dtext))
         }
 
         match (delims[1].size) {
-            case 1 =>
-                end1 = tempDelims2[0]
-                end2 = Mustache.NO_CHAR
-            case 2 =>
-                end1 = tempDelims2[0]
-                end2 = tempDelims2[1]
+            case 1 => end1 = tempDelims2[0]
+                      end2 = Mustache.NO_CHAR
+            case 2 => end1 = tempDelims2[0]
+                      end2 = tempDelims2[1]
             case _ => throw MustacheException(errmsg(dtext))
         }
 
         return this
     }
 
-    public func addTag(prefix: Rune, name: String, into: StringBuilder): Unit {
+    public func addTag(
+        prefix: Rune, name: String, 
+        into: StringBuilder): Unit {
         into.append(start1)
         into.append(start2)
         if (prefix != r' ') {
@@ -941,21 +957,21 @@ public class Delims {
 
     private static func errmsg(dtext: String): String {
         "Invalid delimiter configuration '" + dtext + "'. Must be of the " +
-            "form {{=1 2=}} or {{=12 34=}} where 1, 2, 3 and 4 are delimiter chars."
+        "form {{=1 2=}} or {{=12 34=}} where 1, 2, 3 and 4 are delimiter chars."
     }
 }
 
 /** 处理渲染模板时将对象转换为字符串 
  */
-public interface Formatter {
+public interface Formatter { 
     /** 将 @Param value 转换为 String 以包含在模板中
-     */
+      */
     func format(value: DataModel): String
 }
 
 public interface VariableFetcher {
     /** 从提供的上下文对象中读取名为 @Param name 的变量 
-     */
+      */
     func get(ctx: DataModel, name: String): DataModel
 }
 
@@ -965,12 +981,14 @@ public interface Escaper {
     func escape(raw: String): String
 
     /**
-     * 如果需要，使用转义序列转义原始字符，并将其附加到可追加/可写字符序列中
-     * @param stringBuilder  : 可追加/可写的字符串构造器
-     * @param out            ：可追加/可写的流对象
-     * @param raw            ：输入字符串
-     */
-    func escape(stringBuilder: ?StringBuilder, out: ?OutputStream, raw: String): Unit {
+      * 如果需要，使用转义序列转义原始字符，并将其附加到可追加/可写字符序列中
+      * @param stringBuilder  : 可追加/可写的字符串构造器
+      * @param out            ：可追加/可写的流对象
+      * @param raw            ：输入字符串
+      */
+    func escape(
+        stringBuilder: ?StringBuilder, out: ?OutputStream, 
+        raw: String): Unit {
         appendOrWrite(stringBuilder, out, raw)
     }
 
@@ -980,6 +998,8 @@ public interface Escaper {
     }
 }
 
+
+
 /** 处理加载部分(partial)模板 
  */
 public interface TemplateLoader {
@@ -987,76 +1007,79 @@ public interface TemplateLoader {
     func getTemplate(name: String): InputStream
 }
 
+
 /**用于在不执行模板的情况下访问模板中的标签*/
 public interface Visitor {
     /** 访问文本段。这些文本块通常在执行模板时按原样再现 
-     * @param text :文本块。可能包含换行符
-     */
+      * @param text :文本块。可能包含换行符 
+      */
     func visitText(text: String): Unit
 
     /** 访问变量标签。
-     * @param name : 变量的名称。
-     */
+      * @param name : 变量的名称。
+      */
     func visitVariable(name: String): Unit
 
     /** 问包含（partial）标签。
-     * @param name : 标记指定的部分模板的名称。
-     * @return : 如果模板应该被解析和访问，则返回true，跳过则返回false。
-     */
+      * @param name : 标记指定的部分模板的名称。
+      * @return : 如果模板应该被解析和访问，则返回true，跳过则返回false。
+      */
     func visitInclude(name: String): Bool
 
+
     /** 访问父部分标签。默认情况下为向后兼容性
-     * 返回<code>false</code>。
-     * @param name标记指定的父部分模板的名称。
-     * @return : 如果模板应该被解析和访问，则返回true，跳过则返回false。
-     */
+      * 返回<code>false</code>。
+      * @param name标记指定的父部分模板的名称。
+      * @return : 如果模板应该被解析和访问，则返回true，跳过则返回false。
+      */
     func visitParent(_: String): Bool {
         return false
     }
 
     /** 访问块标签(block tag)。默认情况下跳过向后兼容性。
-     * @param name块的名称。
-     * @return : 如果应该访问块的内容，则返回true，跳过则返回false。
-     */
+      * @param name块的名称。
+      * @return : 如果应该访问块的内容，则返回true，跳过则返回false。
+      */
     func visitBlock(_: String): Bool {
         return false
     }
-
+    
     /** 访问分区标签(section tag)。
-     * @param name节(section)的名称。
-     * @return : 如果应该访问该部分的内容，则返回true，跳过则返回false。
-     */
+      * @param name节(section)的名称。
+      * @return : 如果应该访问该部分的内容，则返回true，跳过则返回false。
+      */
     func visitSection(name: String): Bool
 
     /** 访问倒置的分区标签(section tag)。
-     * @param name反转部分的名称。
-     * @return : 如果应该访问该部分的内容，则返回true，跳过则返回false。
-     */
+      * @param name反转部分的名称。
+      * @return : 如果应该访问该部分的内容，则返回true，跳过则返回false。
+      */
     func visitInvertedSection(name: String): Bool
 }
 
 public interface Collector {
     /** 在提供的上下文对象中为名为 @Param name 的变量创建一个提取器，该提取器永远不会为None。
-     * 其中 fetcher 将被缓存，并在未来的上下文中重用，
-     */
+      * 其中 fetcher 将被缓存，并在未来的上下文中重用，
+      */
     func createFetcher(ctx: DataModel, name: String): ?VariableFetcher
 
     /** 创建用于缓存 VariableFetcher实例的映射。*/
     func createFetcherCache(): ConcurrentHashMap<String, VariableFetcher>
 }
 
+
 /** 命名段的辅助类 */
 protected abstract class NamedSegment <: Segment {
     protected NamedSegment(
-        protected let _name: String,
-        protected let _line: Int64
-    ) {}
+        protected let _name: String, 
+        protected let _line: Int64) {}
 
     public override func serialize(): DataModel {
-        return DataModelStruct().add(field<String>("_name", _name)).add(field<Int64>("_line", _line))
+        return DataModelStruct().add(field<String>("_name", _name)).
+            add(field<Int64>("_line", _line))
     }
 
-    public open func toString(): String {
+    open public func toString(): String {
         return serialize().toJson().toJsonString()
     }
 }
@@ -1067,29 +1090,31 @@ protected class VariableSegment <: NamedSegment {
     protected let _formatter: Formatter
     protected let _escaper: Escaper
 
-    public init(name: String, line: Int64, formatter: Formatter, escaper: Escaper) {
+    public init(name: String, line: Int64, 
+        formatter: Formatter, escaper: Escaper) {
         super(name, line)
         _formatter = formatter
         _escaper = escaper
     }
 
-    public override func execute(tmpl: Template, ctx: Context, out: OutputStream): Unit {
-        let value = tmpl.getValueOrDefault(ctx, _name, _line)
+    public override func execute(tmpl: Template, ctx: Context, 
+        out: OutputStream): Unit {
+        let value = tmpl.getValueOrDefault(ctx, _name, _line)   
         if (value is DataModelNull) {
             let msg: String = if (Template.isThisName(_name)) {
-                "Resolved '.' to null (which is disallowed), on line " + _line.toString()
+                "Resolved '.' to null (which is disallowed), on line " +
+                    _line.toString()
             } else {
-                "No key, method or field with name '" + _name + "' on line " + _line.toString()
+                "No key, method or field with name '" +
+                    _name + "' on line " + _line.toString()
             }
             throw MustacheException(msg)
         }
         escape(out, _formatter.format(value), _escaper)
-    }
+    } 
 
-    public override func decompile(
-        delims: Delims,
-        into: StringBuilder
-    ): Unit {
+    public override func decompile(delims: Delims, 
+        into: StringBuilder): Unit {
         delims.addTag(r' ', _name, into)
     }
 
@@ -1097,7 +1122,8 @@ protected class VariableSegment <: NamedSegment {
         visitor.visitVariable(_name)
     }
 
-    public override func indent(_: String, _: Bool, _: Bool): VariableSegment {
+    public override func indent(_: String, _: Bool, 
+        _: Bool): VariableSegment {
         return this
     }
 
@@ -1113,8 +1139,8 @@ protected class VariableSegment <: NamedSegment {
 protected interface StandaloneSection <: BlockReplaceable {
     func firstLeadsBlank(): Bool {
         let _segs = segs()
-        if (_segs.size == 0 || !(_segs[0] is StringSegment)) {
-            return false
+        if (_segs.size == 0 || !(_segs[0] is StringSegment)) { 
+            return false 
         }
         return (_segs[0] as StringSegment).getOrThrow().leadsBlank()
     }
@@ -1128,8 +1154,8 @@ protected interface StandaloneSection <: BlockReplaceable {
         let _segs = segs()
         let lastIdx = _segs.size - 1
 
-        if (_segs.size == 0 || !(_segs[lastIdx] is StringSegment)) {
-            return false
+        if (_segs.size == 0 || !(_segs[lastIdx] is StringSegment)) { 
+            return false 
         }
 
         return (_segs[lastIdx] as StringSegment).getOrThrow().trailsBlank()
@@ -1138,7 +1164,8 @@ protected interface StandaloneSection <: BlockReplaceable {
     func trimLastBlank(): Unit {
         let _segs = segs()
         let lastIdx = _segs.size - 1
-        _segs[lastIdx] = (_segs[lastIdx] as StringSegment).getOrThrow().trimTrailBlank()
+        _segs[lastIdx] = (_segs[lastIdx] as StringSegment).
+        getOrThrow().trimTrailBlank()
     }
 
     func isStandaloneEnd(): Bool
@@ -1154,48 +1181,45 @@ protected interface BlockReplaceable {
 }
 
 protected abstract class AbstractSectionSegment <: NamedSegment & StandaloneSection {
-    protected init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64) {
+    protected init(compiler: Compiler, name: String, 
+        segs: Array<Segment>, line: Int64) {
         super(name, line)
         _comp = compiler
         _segs = Mustache.trim(segs, false)
     }
 
-    protected init(
-        original: AbstractSectionSegment,
-        segs: Array<Segment>
-    ) {
+    protected init(original: AbstractSectionSegment, 
+        segs: Array<Segment>) {
         super(original._name, original._line)
         _comp = original._comp
         _segs = segs
     }
 
-    protected func executeSegs(tmpl: Template, ctx: Context, out: OutputStream): Unit {
+    protected func executeSegs(tmpl: Template, 
+        ctx: Context, out: OutputStream): Unit {
         for (seg in _segs) {
             seg.execute(tmpl, ctx, out)
         }
     }
 
-    protected func indent(indent: String, first: Bool, last: Bool): AbstractSectionSegment
+    protected func indent(indent: String, first: Bool, 
+        last: Bool): AbstractSectionSegment
 
-    public override func isStandalone(): Bool {
-        return _standaloneEnd
-    }
-    public override func isStandaloneStart(): Bool {
-        return _standaloneStart
-    }
-    public override func isStandaloneEnd(): Bool {
-        return _standaloneEnd
-    }
-    public override func standaloneStart(standaloneStart: Bool): Unit {
-        this._standaloneStart = standaloneStart
-    }
-    public override func standaloneEnd(standaloneEnd: Bool): Unit {
-        this._standaloneEnd = standaloneEnd
-    }
+    public override func isStandalone(): Bool 
+    { return _standaloneEnd }
+    public override func isStandaloneStart(): Bool 
+    { return _standaloneStart }
+    public override func isStandaloneEnd(): Bool 
+    { return _standaloneEnd }
+    public override func standaloneStart(
+        standaloneStart: Bool): Unit 
+    { this._standaloneStart = standaloneStart }
+    public override func standaloneEnd(
+        standaloneEnd: Bool): Unit 
+    { this._standaloneEnd = standaloneEnd }
 
-    public override func segs(): Array<Segment> {
-        return _segs
-    }
+    public override func segs(): Array<Segment> 
+    { return _segs }
 
     protected let _comp: Compiler
     protected let _segs: Array<Segment>
@@ -1205,24 +1229,27 @@ protected abstract class AbstractSectionSegment <: NamedSegment & StandaloneSect
 
 // 如果可迭代，则迭代执行
 protected class SectionSegment <: AbstractSectionSegment {
-    public init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64) {
+    public init(compiler: Compiler, name: String, 
+        segs: Array<Segment>, line: Int64) {
         super(compiler, name, segs, line)
     }
 
-    public init(original: SectionSegment, segs: Array<Segment>) {
+    public init(
+        original: SectionSegment, segs: Array<Segment>) {
         super(original, segs)
     }
-
-    public override func execute(tmpl: Template, ctx: Context, out: OutputStream): Unit {
+    
+    public override func execute(tmpl: Template, 
+        ctx: Context, out: OutputStream): Unit {
         let value = tmpl.getSectionValue(ctx, _name, _line)
-
+        
         if (let Some(iterValue) <- (value as DataModelSeq)) {
             let iter = iterValue.getItems().iterator()
 
             var index = 0
             let list = ArrayList<DataModel>()
             while (let Some(elem) <- iter.next()) {
-                list.append(elem)
+                list.add(elem)
             }
 
             var count = list.size
@@ -1231,24 +1258,24 @@ protected class SectionSegment <: AbstractSectionSegment {
                 let onFirst: Bool = (index == 0)
                 let onLast: Bool = !(count != 0)
                 index++
-                executeSegs(tmpl, ctx.next(elem, index, onFirst, onLast), out)
+                executeSegs(tmpl, 
+                ctx.next(elem, index, onFirst, onLast), out)
             }
         } else if (let Some(boolValue) <- (value as DataModelBool)) {
             if (boolValue.getValue()) {
                 executeSegs(tmpl, ctx, out)
             }
         } else if (_comp.isFalsey(value)) {
-        // omit the section
+            // omit the section
         } else {
             executeSegs(tmpl, ctx.next(value), out)
         }
     }
 
-    public override func decompile(delims: Delims, into: StringBuilder): Unit {
+    public override func decompile(
+        delims: Delims, into: StringBuilder): Unit {
         delims.addTag(r'#', _name, into)
-        for (seg in _segs) {
-            seg.decompile(delims, into)
-        }
+        for (seg in _segs) { seg.decompile(delims, into) }
         delims.addTag(r'/', _name, into)
     }
 
@@ -1259,14 +1286,18 @@ protected class SectionSegment <: AbstractSectionSegment {
             }
         }
     }
-    public override func indent(indent: String, first: Bool, last: Bool): SectionSegment {
-        let segs: Array<Segment> = Mustache.indentSegs(_segs, indent, first, last)
+    public override func indent(indent: String, 
+        first: Bool, last: Bool): SectionSegment {
+        let segs: Array<Segment> = Mustache.indentSegs(
+            _segs, indent, first, last)
         if (segs.equal(_segs)) {
             return this
         }
         return SectionSegment(this, segs)
+
     }
-    public override func replaceBlocks(blocks: HashMap<String, BlockSegment>): SectionSegment {
+    public override func replaceBlocks(
+        blocks: HashMap<String, BlockSegment>): SectionSegment {
         let segs = Mustache.replaceBlockSegs(_segs, blocks)
         if (segs.equal(_segs)) {
             return this
@@ -1274,30 +1305,33 @@ protected class SectionSegment <: AbstractSectionSegment {
         return SectionSegment(this, segs)
     }
     public func toString(): String {
-        return "Section(" + _name + ":" + _line.toString() + "): " + _segs._toString()
+        return "Section(" + _name + ":" +
+        _line.toString() + "): " + 
+        _segs._toString()
     }
 }
 
 /** 使用$作为符号的父部分参数 */
 protected class BlockSegment <: AbstractSectionSegment {
-    public init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64) {
+    public init(compiler: Compiler, name: String,
+        segs: Array<Segment>, line: Int64) {
         super(compiler, name, segs, line)
     }
 
-    public init(original: BlockSegment, segs: Array<Segment>) {
+    public init(
+        original: BlockSegment, segs: Array<Segment>) {
         super(original, segs)
     }
 
-    public override func execute(tmpl: Template, ctx: Context, out: OutputStream): Unit {
+    public override func execute(tmpl: Template, 
+        ctx: Context, out: OutputStream): Unit {
         executeSegs(tmpl, ctx, out)
     }
 
-    public override func decompile(
-        delims: Delims,
-        into: StringBuilder
-    ): Unit {
+    public override func decompile(delims: Delims, 
+        into: StringBuilder): Unit {
         delims.addTag(r'$', _name, into)
-        for (seg in _segs) {
+        for (seg in _segs) { 
             seg.decompile(delims, into)
         }
         delims.addTag(r'/', _name, into)
@@ -1311,19 +1345,23 @@ protected class BlockSegment <: AbstractSectionSegment {
         }
     }
 
-    protected override func indent(indent: String, first: Bool, last: Bool): BlockSegment {
-        let segs: Array<Segment> = Mustache.indentSegs(_segs, indent, first, last)
+    protected override func indent(indent: String, first: Bool,
+        last: Bool): BlockSegment {
+        let segs: Array<Segment> = Mustache.indentSegs(
+            _segs, indent, first, last)
         if (segs.equal(_segs)) {
             return this
         }
         return BlockSegment(this, segs)
     }
 
-    public override func replaceBlocks(blocks: HashMap<String, BlockSegment>): BlockSegment {
+    public override func replaceBlocks(
+        blocks: HashMap<String, BlockSegment>): BlockSegment {
         if (let Some(extracedBlocks) <- blocks.get(_name)) {
             return BlockSegment(this, extracedBlocks._segs)
         } else {
-            let segs: Array<Segment> = Mustache.replaceBlockSegs(_segs, blocks)
+            let segs: Array<Segment> = Mustache.
+            replaceBlockSegs(_segs, blocks)
             if (segs.equal(_segs)) {
                 return this
             }
@@ -1332,7 +1370,8 @@ protected class BlockSegment <: AbstractSectionSegment {
     }
 
     public func toString() {
-        return "Block(" + _name + ":" + _line.toString() + "): " + _segs._toString()
+        return "Block(" + _name + ":" + _line.toString() +
+        "): " + _segs._toString()
     }
 }
 
@@ -1342,15 +1381,17 @@ protected abstract class AbstractPartialSegment <: NamedSegment {
     private let lock = Mutex()
     private var _template: ?Template = None 
 
-    protected init(compiler: Compiler, name: String, line: Int64, indent: String) {
+    protected init(compiler: Compiler, name: String, line: Int64,
+        indent: String) {
         super(name, line)
         _comp = compiler
         _indent = indent
     }
 
-    public override func execute(_: Template, ctx: Context, out: OutputStream): Unit {
+    public override func execute(_: Template, ctx: Context, 
+        out: OutputStream): Unit {
         /** 我们必须注意保留我们的上下文，而不是创建一个新的上下文，
-         * 如果我们只是用ctx.data调用execute（），就会发生这种情况 */
+          * 如果我们只是用ctx.data调用execute（），就会发生这种情况 */
         getTemplate().executeSegs(ctx, out)
     }
 
@@ -1373,7 +1414,7 @@ protected abstract class AbstractPartialSegment <: NamedSegment {
         return currentTemplate.getOrThrow()
     }
 
-    protected open func _loadTemplate(): Template {
+    open protected func _loadTemplate(): Template {
         return _comp.loadTemplate(_name).indent(_indent)
     }
 
@@ -1386,14 +1427,13 @@ protected class IncludedTemplateSegment <: AbstractPartialSegment {
         super(compiler, name, line, "")
     }
 
-    private init(compiler: Compiler, name: String, line: Int64, indent: String) {
+    private init(compiler: Compiler, name: String, 
+        line: Int64, indent: String) {
         super(compiler, name, line, indent)
     }
 
-    public override func decompile(
-        deilms: Delims,
-        into: StringBuilder
-    ): Unit {
+    public override func decompile(deilms: Delims, 
+        into: StringBuilder): Unit {
         deilms.addTag(r'<', _name, into)
     }
 
@@ -1403,70 +1443,75 @@ protected class IncludedTemplateSegment <: AbstractPartialSegment {
         }
     }
 
-    protected override func indent(indent: String, _: Bool, _: Bool): IncludedTemplateSegment {
+    protected override func indent(indent: String, 
+        _: Bool, _: Bool): IncludedTemplateSegment {
         if (_standalone.isNone()) {
             throw NoneValueException()
         }
 
         let r_standalone = _standalone.getOrThrow()
-        if (indent == "" || !r_standalone) {
+        if (indent.equalsIgnoreAsciiCase("") ||
+            !r_standalone) {
             return this
         }
-
-        let s = IncludedTemplateSegment(_comp, _name, _line, indent + this._indent)
+        
+        let s = IncludedTemplateSegment(_comp, _name, _line, 
+            indent + this._indent)
         s._standalone = r_standalone
         return s
     }
 
     public func toString(): String {
-        return "Include(name=" + _name + ", indent=" + _indent + ", standalone=" + _standalone.getOrThrow().toString() +
-            ")"
+        return "Include(name=" + _name + ", indent=" + _indent +
+            ", standalone=" + _standalone.getOrThrow().toString() + ")"
     }
     public override func isStandalone(): Bool {
         return _standalone.getOrThrow()
-    }
+    } 
     protected var _standalone: ?Bool = None
 }
 
 /** 通过称为继承的规范加载和执行父模板的段 */
-protected class ParentTemplateSegment <: AbstractPartialSegment & StandaloneSection {
-    public init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64) {
+protected class ParentTemplateSegment<: AbstractPartialSegment & StandaloneSection {
+    public init(compiler: Compiler, name: String, 
+        segs: Array<Segment>, line: Int64) {
         this(compiler, name, segs, line, "")
     }
 
-    private init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64, indent: String) {
+    private init(compiler: Compiler, name: String, 
+        segs: Array<Segment>, line: Int64, indent: String) {
         super(compiler, name, line, indent)
         this._segs = Mustache.trim(removeNonBlocks(segs), true)
         this._blocks = HashMap<String, BlockSegment>()
     }
 
-    private init(original: ParentTemplateSegment, segs: Array<Segment>, indent: String,
-        blocks: HashMap<String, BlockSegment>) {
-        super(original._comp, original._name, original._line, indent + original._indent)
+    private init(original: ParentTemplateSegment, segs: Array<Segment>,
+        indent: String, blocks: HashMap<String, BlockSegment>) {
+        super(original._comp, original._name, original._line, 
+        indent + original._indent)
         this._segs = segs
         this._standaloneStart = original._standaloneStart
         this._standaloneEnd = original._standaloneEnd
         let newBlocks = HashMap<String, BlockSegment>()
-        newBlocks.putAll(original._blocks)
-        newBlocks.putAll(blocks)
-        this._blocks = newBlocks
+        newBlocks.add(all: original._blocks)
+        newBlocks.add(all: blocks)
+        this._blocks = newBlocks 
     }
 
-    private static func removeNonBlocks(segs: Array<Segment>): Array<Segment> {
+    private static func removeNonBlocks(
+        segs: Array<Segment>): Array<Segment> {
         let copy = ArrayList<Segment>()
         for (seg in segs) {
             if (seg is BlockSegment) {
-                copy.append(seg)
-            }
+                copy.add(seg)
+            } 
         }
 
         return copy.toArray()
     }
 
-    public override func decompile(
-        delims: Delims,
-        into: StringBuilder
-    ) {
+    public override func decompile(delims: Delims,
+        into: StringBuilder) {
         delims.addTag(r'<', _name, into)
     }
 
@@ -1476,11 +1521,14 @@ protected class ParentTemplateSegment <: AbstractPartialSegment & StandaloneSect
         }
     }
 
-    public override func indent(indent: String, _: Bool, _: Bool): ParentTemplateSegment {
-        if (indent == "" || !_standaloneStart) {
+    public override func indent(indent: String, 
+        _: Bool, _: Bool): ParentTemplateSegment {
+        if (indent.equalsIgnoreAsciiCase("") ||
+            !_standaloneStart) {
             return this
         }
-        return ParentTemplateSegment(this, this._segs, indent, HashMap<String, BlockSegment>())
+        return ParentTemplateSegment(this, this._segs, 
+                indent, HashMap<String, BlockSegment>())
     }
 
     protected override func _loadTemplate(): Template {
@@ -1488,75 +1536,72 @@ protected class ParentTemplateSegment <: AbstractPartialSegment & StandaloneSect
         for (seg in _segs) {
             if (seg is BlockSegment) {
                 let bs = (seg as BlockSegment).getOrThrow()
-                blocks.put(bs._name, bs)
+                blocks.add(bs._name, bs)
             }
         }
-        blocks.putAll(_blocks)
+        blocks.add(all: _blocks)
         return super._loadTemplate().replaceBlocks(blocks)
     }
 
     public override func lastTrailsBlank(): Bool {
         let _segs: Array<Segment> = segs()
-        let lastIdx: Int64 = _segs.size - 1
+        let lastIdx: Int64 = _segs.size - 1 
 
-        if (lastIdx < 0) {
-            return true
+        if (lastIdx < 0) { 
+            return true 
         }
 
-        if (!(_segs[lastIdx] is StringSegment)) {
-            return false
-        }
+        if (!(_segs[lastIdx] is StringSegment)) { 
+                return false 
+            }
         return (_segs[lastIdx] as StringSegment).getOrThrow().trailsBlank()
     }
 
     public override func trimLastBlank(): Unit {
         let _segs: Array<Segment> = segs()
         let idx: Int64 = _segs.size - 1
-
-        if (idx < 0) {
-            return
+        
+        if (idx < 0) { 
+            return 
         }
 
         _segs[idx] = (_segs[idx] as StringSegment).getOrThrow().trimTrailBlank()
     }
 
-    public override func replaceBlocks(blocks: HashMap<String, BlockSegment>): ParentTemplateSegment {
+    public override func replaceBlocks(
+        blocks: HashMap<String, BlockSegment>): ParentTemplateSegment {
         return ParentTemplateSegment(this, _segs, "", blocks)
     }
 
-    public func segs(): Array<Segment> {
-        return _segs
-    }
-    public override func isStandalone(): Bool {
-        return _standaloneEnd
-    }
-    public override func isStandaloneStart(): Bool {
-        return _standaloneStart
-    }
-    public override func isStandaloneEnd(): Bool {
-        return _standaloneEnd
-    }
-    public override func standaloneStart(standaloneStart: Bool): Unit {
-        this._standaloneStart = standaloneStart
-    }
-    public override func standaloneEnd(standaloneEnd: Bool): Unit {
-        this._standaloneEnd = standaloneEnd
-    }
+    public func segs(): Array<Segment> 
+    { return _segs }
+    public override func isStandalone(): Bool 
+    { return _standaloneEnd }
+    public override func isStandaloneStart(): Bool 
+    { return _standaloneStart }
+    public override func isStandaloneEnd(): Bool 
+    { return _standaloneEnd }
+    public override func standaloneStart(standaloneStart: Bool): Unit 
+    { this._standaloneStart = standaloneStart }
+    public override func standaloneEnd(standaloneEnd: Bool): Unit 
+    { this._standaloneEnd = standaloneEnd }
 
     public func toString(): String {
-        return "Parent(name=" + _name + ", indent=" + _indent + ", standaloneStart=" + _standaloneStart.toString() + ")"
+        return "Parent(name=" + _name + ", indent=" + _indent + 
+        ", standaloneStart=" + _standaloneStart.toString() + ")"
     }
 
     protected let _segs: Array<Segment>
     protected var _standaloneStart: Bool = false
     protected var _standaloneEnd: Bool = false
     protected let _blocks: HashMap<String, BlockSegment>
-}
+} 
 
 /** 表示倒置截面的线段(inverted section) */
 protected class InvertedSegment <: AbstractSectionSegment {
     protected let __comp: Compiler
-    public init(compiler: Compiler, name: String, segs: Array<Segment>, line: Int64) {
+    public init(compiler: Compiler, name: String, 
+        segs: Array<Segment>, line: Int64) {
         super(compiler, name, segs, line)
         __comp = compiler
     }
@@ -1565,7 +1610,8 @@ protected class InvertedSegment <: AbstractSectionSegment {
         __comp = original._comp
     }
 
-    public override func execute(tmpl: Template, ctx: Context, out: OutputStream): Unit {
+    public override func execute(tmpl: Template, 
+        ctx: Context, out: OutputStream): Unit {
         let value = tmpl.getSectionValue(ctx, _name, _line)
         if (let Some(iterValue) <- (value as DataModelSeq)) {
             let iter = iterValue.getItems().iterator()
@@ -1581,14 +1627,10 @@ protected class InvertedSegment <: AbstractSectionSegment {
         }
     }
 
-    public override func decompile(
-        delims: Delims,
-        into: StringBuilder
-    ): Unit {
+    public override func decompile(delims: Delims,
+        into: StringBuilder): Unit {
         delims.addTag(r'$', _name, into)
-        for (seg in _segs) {
-            seg.decompile(delims, into)
-        }
+        for (seg in _segs) { seg.decompile(delims, into) }
         delims.addTag(r'/', _name, into)
     }
 
@@ -1600,83 +1642,81 @@ protected class InvertedSegment <: AbstractSectionSegment {
         }
     }
 
-    protected override func indent(indent: String, first: Bool, last: Bool): InvertedSegment {
-        let segs: Array<Segment> = Mustache.indentSegs(_segs, indent, first, last)
+    protected override func indent(indent: String, 
+        first: Bool, last: Bool): InvertedSegment {
+        let segs: Array<Segment> = Mustache.indentSegs(
+            _segs, indent, first, last)
         if (segs.equal(_segs)) {
             return this
         }
         return InvertedSegment(this, segs)
     }
 
-    public override func replaceBlocks(blocks: HashMap<String, BlockSegment>): InvertedSegment {
-        let segs: Array<Segment> = Mustache.replaceBlockSegs(_segs, blocks)
+    public override func replaceBlocks(
+        blocks: HashMap<String, BlockSegment>): InvertedSegment {
+        let segs: Array<Segment> = Mustache.
+            replaceBlockSegs(_segs, blocks)
         if (segs.equal(_segs)) {
             return this
         }
         return InvertedSegment(this, segs)
     }
-
+    
     public func toString() {
-        return "Inverted(" + _name + ":" + _line.toString() + "): " + _segs._toString();
+        return "Inverted(" + _name + ":" + 
+        _line.toString() + "): " + _segs._toString();
     }
 }
 
 /** 再现字符串的简单片段 */
 protected class FauxSegment <: Segment {
-    public override func execute(_: Template, _: Context, _: OutputStream): Unit {}
+    public override func execute(_: Template, 
+        _: Context, _: OutputStream): Unit {}
 
-    public override func decompile(
-        _: Delims,
-        _: StringBuilder
-    ): Unit {}
+    public override func decompile(_: Delims, 
+        _: StringBuilder): Unit {} 
 
     public override func visit(_: Visitor): Unit {}
 
-    public override func indent(_: String, _: Bool, _: Bool): FauxSegment {
-        return this
-    }
+    public override func indent(_: String, 
+        _: Bool, _: Bool): FauxSegment { return this }
 
-    public override func isStandalone(): Bool {
-        true
-    }
+    public override func isStandalone(): Bool { true }
 
-    public func ToString() {
-        "Faux"
-    }
+    public func ToString() { "Faux" }
 }
 
 protected class StringSegment <: Segment {
-    public StringSegment(let _text: String, let _leadBlank: Int64, let _trailBlank: Int64, let _first: Bool) {
-        if (!(_leadBlank >= -1) || !(_trailBlank >= -1)) {
-            throw Exception("_leadBlank or _trailBlank < -1")
+    public StringSegment(let _text: String, let _leadBlank: Int64, 
+        let _trailBlank: Int64, let _first: Bool) {
+            if (!(_leadBlank >= -1) || !(_trailBlank >= -1)) {
+                throw Exception("_leadBlank or _trailBlank < -1")
+            }
         }
-    }
 
     public init(text: String, first: Bool) {
-        this(text, blankPos(text, true, first), blankPos(text, false, first), first)
+        this(text, blankPos(text, true, first),
+            blankPos(text, false, first), first)
     }
+
 
     /* 判断当前字符串片段是否有前导空白或尾随空白。
      * 返回 _leadBlank 和 _trailBlank 是否等于 -1 来确定是否有空白 */
-    public func leadsBlank(): Bool {
-        return _leadBlank != -1
-    }
-    public func trailsBlank(): Bool {
-        return _trailBlank != -1
-    }
-
+    public func leadsBlank(): Bool { return _leadBlank != -1 }
+    public func trailsBlank(): Bool { return _trailBlank != -1 }
+    
     /* 这两个方法分别用于修剪字符串片段的前导和尾随空白字符，返回新的 StringSegment 实例 */
     public func trimLeadBlank(): StringSegment {
-        if (_leadBlank == -1) {
-            return this
+        if (_leadBlank == -1) { 
+            return this 
         }
 
         let lpos = _leadBlank + 1
         let newTrail = if (_trailBlank == -1) {
-            -1
-        } else {
-            _trailBlank - lpos
-        }
+                            -1 
+                        } else { 
+                            _trailBlank - lpos 
+                        }
 
         StringSegment(_text.slice(begin: lpos), -1, newTrail, _first)
     } 
@@ -1690,9 +1730,9 @@ protected class StringSegment <: Segment {
     }
 
     /** 计算部分标识的缩进,如果字符串尾部没有空白或者尾随空白超出了字符串长度，
-     * 则返回空字符串。否则返回 _trailBlank 之后的部分
-     * @reutrn : 缩进空格或空字符串
-     */
+      * 则返回空字符串。否则返回 _trailBlank 之后的部分
+      * @reutrn : 缩进空格或空字符串
+      */
     func indent(): String {
         if (_trailBlank == -1 || _trailBlank >= _text.size) {
             return ""
@@ -1700,8 +1740,10 @@ protected class StringSegment <: Segment {
         return _text.slice(begin: _trailBlank)
     }
 
-    public func indent(indent: String, first: Bool, last: Bool): StringSegment {
-        if (indent == "") {
+    public func indent(indent: String, 
+        first: Bool, last: Bool): StringSegment {
+
+        if (indent.equalsIgnoreAsciiCase("")) { 
             return this
         }
 
@@ -1713,14 +1755,13 @@ protected class StringSegment <: Segment {
         return false
     }
 
-    public override func execute(_: Template, _: Context, out: OutputStream): Unit {
+    public override func execute(_: Template, 
+        _: Context, out: OutputStream): Unit {
         write(out, _text)
     }
 
-    public override func decompile(
-        _: Delims,
-        into: StringBuilder
-    ): Unit {
+    public override func decompile(_: Delims, 
+        into: StringBuilder): Unit {
         into.append(_text)
     }
 
@@ -1729,13 +1770,14 @@ protected class StringSegment <: Segment {
     }
 
     public func toString() {
-        "Text(" + _text.replace("\r", "\\r").replace("\n", "\\n") + ")" + _leadBlank.toString() + "/" +
-            _trailBlank.toString()
+        "Text(" + _text.replace("\r", "\\r").replace("\n", "\\n") + ")" + 
+            _leadBlank.toString() + "/" + _trailBlank.toString()
     }
 
     /* 这个方法用于重新缩进字符串。如果 first 为真，在字符串开头添加缩进；
      * 如果在字符串中遇到换行符，则在换行符后添加缩进 */
-    private static func reindent(input: String, indent: String, first: Bool, last: Bool): String {
+    private static func reindent(input: String, indent: String,
+        first: Bool, last: Bool): String {
         let inputRunes = input.toRuneArray()
         let length = inputRunes.size
         let stringBuild = StringBuilder(indent.size + length)
@@ -1758,47 +1800,30 @@ protected class StringSegment <: Segment {
     /* 这个静态方法用于确定字符串中的空白字符位置。它会根据 leading 标志来决定查找前导还是尾随空白。
      * 如果是查找前导空白，从字符串的开头开始遍历；如果查找尾随空白，从字符串末尾开始向前遍历
      * 如果在字符串中找到了换行符（\n），就返回该位置；如果没有找到空白字符，则返回 -1*/
-    private static func blankPos(text: String, leading: Bool, first: Bool): Int64 {
+    private static func blankPos(text: String, 
+        leading: Bool, first: Bool): Int64 {
         let textRunes = text.toRuneArray()
         let len = textRunes.size
 
-        var ii: Int64 = if (leading) {
-            0
-        } else {
-            len - 1
-        }
-        let ll: Int64 = if (leading) {
-            len
-        } else {
-            -1
-        }
-        let dd: Int64 = if (leading) {
-            1
-        } else {
-            -1
-        }
+        var ii: Int64 = if (leading) { 0 }
+                        else { len - 1 }
+        let ll: Int64 = if (leading) { len }
+                        else { -1 }
+        let dd: Int64 = if (leading) { 1 }
+                        else { -1 }
 
         while (ii != ll) {
             var c = textRunes[ii]
-            if (c == r'\n') {
-                return if (leading) {
-                    ii
-                } else {
-                    ii + 1
-                }
+            if (c == r'\n') { 
+                return if (leading) { ii }
+                        else { ii + 1 }
             }
-            if (!c.isWhiteSpace()) {
-                return -1
-            }
+            if (!c.isWhiteSpace()) { return -1 }
             ii += dd
         }
         /* 如果这是第一个字符串段，我们正在寻找尾随空格，
          * 那么一个完全空白的段（但缺少换行符）就是所有尾随空格 */
-        return if (leading || !first) {
-            -1
-        } else {
-            0
-        }
+        return if (leading || !first) { -1 } else { 0 }
     }
 }
 
@@ -1807,15 +1832,13 @@ extend<T> Array<T> where T <: Segment {
         let size1 = this.size
         let size2 = segs.size
 
-        if (size1 != size2) {
-            return false
-        }
+        if (size1 != size2) { return false }
         for (i in 0..size1) {
             if (!refEq(this[i], segs[i])) {
                 return false
             }
         }
-
+        
         return true
     }
 

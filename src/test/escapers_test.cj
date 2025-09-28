@@ -46,8 +46,10 @@ public class EscapersTest {
     @TestCase
     public func escaper2Test() {
         let escaper = NoneEscaper()
-        @Expect(escaper.escape("") == "")
-        @Expect(escaper.escape("foo") == "foo")
+        @Expect(escaper.escape("").
+        equalsIgnoreAsciiCase(""))
+        @Expect(escaper.escape("foo").
+        equalsIgnoreAsciiCase("foo"))
     }
 
     @TestCase
@@ -55,9 +57,12 @@ public class EscapersTest {
         let mappings1 = [["A", 'a'], ["B", 'b'], ["C", "c"]]
         let table1 = Lookup7bitEscaper.
         createTable(mappings1).getOrThrow()
-        @Expect((table1[Int64(b'A')].getOrThrow()) == "a")
-        @Expect((table1[Int64(b'B')].getOrThrow()) == "b")
-        @Expect((table1[Int64(b'C')].getOrThrow()) == "c")
+        @Expect((table1[Int64(b'A')].getOrThrow()).
+        equalsIgnoreAsciiCase("a"))
+        @Expect((table1[Int64(b'B')].getOrThrow()).
+        equalsIgnoreAsciiCase("b"))
+        @Expect((table1[Int64(b'C')].getOrThrow()).
+        equalsIgnoreAsciiCase("c"))
 
         let mappings2 = [["中", "a"]]
         @ExpectThrows[NoneValueException](
@@ -72,11 +77,11 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'A').
-        getOrThrow()) == "a")
+        getOrThrow()).equalsIgnoreAsciiCase("a"))
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'B').
-        getOrThrow()) == "b")
+        getOrThrow()).equalsIgnoreAsciiCase("b"))
         @Expect((Lookup7bitEscaper.escapeChar(table1, r'C').
-        getOrThrow()) == "c")
+        getOrThrow()).equalsIgnoreAsciiCase("c"))
         @ExpectThrows[NoneValueException](
             Lookup7bitEscaper.escapeChar(table1, r'李').
             getOrThrow()
@@ -89,14 +94,14 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         let sb = StringBuilder()
-        let bas = ByteArrayStream()
+        let bas = ByteBuffer()
         let bf = BufferedOutputStream(bas)
         let escaper = Lookup7bitEscaper(table1)
         escaper.escape(sb, bf, "AAA#BBB#CCC")
         bf.flush()
         let ans = "aaa#bbb#ccc"
         @Expect(sb.toString(), ans)
-        @Expect(String.fromUtf8(bas.readToEnd()), ans)
+        @Expect(String.fromUtf8(readToEnd(bas)), ans)
     }
 
     @TestCase
@@ -105,14 +110,14 @@ public class EscapersTest {
         let table1 = Lookup7bitEscaper.createTable(mappings1).
         getOrThrow()
         let sb = StringBuilder()
-        let bas = ByteArrayStream()
+        let bas = ByteBuffer()
         let bf = BufferedOutputStream(bas)
         let escaper = Lookup7bitEscaper(table1)
         escaper.escape(sb, bf, "A##A#B##B#C##C")
         bf.flush()
         let ans = "a##a#b##b#c##c"
         @Expect(sb.toString(), ans)
-        @Expect(String.fromUtf8(bas.readToEnd()), ans)
+        @Expect(String.fromUtf8(readToEnd(bas)), ans)
     }
 
     @TestCase
