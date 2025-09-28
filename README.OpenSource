@@ -1,0 +1,11 @@
+[
+    {
+        "Name": " cjmustache ",
+        "License": " Apache License 2.0 ",
+        "License File": " LICENSE ",
+        "Owner": ""
+        "Upstream URL": " https://gitcode.com/Cangjie-TPC/cjmustache ",
+        "Version Number": " v1.0.0 ",
+        "Description": " Cangjie implementation of the Mustache template engine "
+    }
+]

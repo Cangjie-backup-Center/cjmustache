@@ -2,7 +2,6 @@ package cjmustache
 
 import stdx.serialization.serialization.*
 import std.collection.concurrent.*
-import std.collection.*
 
 /**
   *  cjnustache使用的默认收集器。
