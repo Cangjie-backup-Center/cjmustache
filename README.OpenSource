@@ -6,6 +6,6 @@
         "Owner": ""
         "Upstream URL": " https://github.com/samskivert/jmustache.git ",
         "Version Number": " v1.0.0 ",
-        "Description": " Cangjie implementation of the Mustache template engine "
+        "Description": " A Java implementation of the Mustache templating language."
     }
 ]
